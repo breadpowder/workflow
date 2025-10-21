@@ -75,15 +75,29 @@ Decouple actions from UI via lookup table (component_id → React component).
     client_type: corporate
     jurisdictions: ["US", "CA", "GB"]
 
+  # Stages define major phases of the workflow
+  stages:
+    - id: information_collection
+      name: Information Collection
+      description: Gather client information and documents
+    - id: compliance_review
+      name: Compliance Review
+      description: Review and verify compliance requirements
+    - id: finalization
+      name: Finalization
+      description: Final review and approval
+
   steps:
     # Step 1: Collect corporate contact information
     - id: collectContactInfo
+      stage: information_collection          # Belongs to first stage
       task_ref: contact_info/corporate      # Reference to task file
       next:
         default: collectDocuments
 
     # Step 2: Collect business documents
     - id: collectDocuments
+      stage: information_collection          # Belongs to first stage
       task_ref: documents/corporate         # Reference to task file
       next:
         conditions:
@@ -93,12 +107,14 @@ Decouple actions from UI via lookup table (component_id → React component).
 
     # Step 3: Enhanced Due Diligence (conditional)
     - id: enhancedDueDiligence
+      stage: compliance_review               # Belongs to second stage
       task_ref: due_diligence/enhanced      # Reference to task file
       next:
         default: review
 
     # Step 4: Review and submit
     - id: review
+      stage: finalization                    # Belongs to third stage
       task_ref: review/summary              # Reference to task file
       next:
         default: END
@@ -290,6 +306,137 @@ const UI_COMPONENT_REGISTRY = {
   - Features: sorting, filtering, pagination
   - Use cases: Beneficial owners, transaction lists
 
+**Chat-First Dynamic UI Pattern**
+
+**Key Innovation**: Forms appear as overlays, not static UI sections.
+
+**Interaction Flow**:
+```
+1. Initial State → Chat only (full height)
+2. Workflow needs input → Form overlay slides in on top of chat
+3. User submits → Overlay closes, returns to chat with success message
+4. Workflow progresses → AI continues conversation
+```
+
+**Benefits**:
+- **Chat remains primary**: Conversational flow uninterrupted
+- **Forms on-demand**: Only appear when needed, then dismiss
+- **Clean interface**: No persistent empty form sections
+- **Mobile-friendly**: Natural modal pattern for small screens
+- **Focus management**: Form overlay grabs attention, backdrop dims chat
+
+**Implementation Strategy**:
+```typescript
+// Right panel state management
+const [overlayState, setOverlayState] = useState<{
+  visible: boolean;
+  component: ComponentType | null;
+  data: any;
+}>({ visible: false, component: null, data: null });
+
+// Form trigger (from renderUI action)
+function showFormOverlay(componentId: string, data: any) {
+  const Component = getComponent(componentId);
+  setOverlayState({ visible: true, component: Component, data });
+}
+
+// Form submission handler
+function handleFormSubmit(formData: any) {
+  // 1. Update collected inputs
+  updateInputs(formData);
+
+  // 2. Close overlay
+  setOverlayState({ visible: false, component: null, data: null });
+
+  // 3. Add success message to chat
+  addSystemMessage("Form submitted successfully!");
+
+  // 4. Progress workflow
+  progressToNextStep();
+}
+```
+
+**Right Panel Component Structure**:
+```tsx
+<RightPanel>
+  {/* Chat - always present, full height by default */}
+  <ChatSection className={overlayState.visible ? 'dimmed' : 'full-height'} />
+
+  {/* Form overlay - conditional */}
+  {overlayState.visible && (
+    <FormOverlay
+      component={overlayState.component}
+      data={overlayState.data}
+      onSubmit={handleFormSubmit}
+      onClose={() => setOverlayState({ visible: false, component: null, data: null })}
+    />
+  )}
+</RightPanel>
+```
+
+**Overlay Behavior**:
+- **Entrance**: Slide-in from bottom (mobile feel) or fade-in with scale (centered modal)
+- **Positioning**: Centered, 80% width desktop, full-screen mobile
+- **Backdrop**: Semi-transparent (opacity 0.4-0.6), click to close
+- **Close triggers**: X button, Cancel, Escape key, click backdrop, successful submit
+- **Error handling**: Validation errors keep overlay open with inline messages
+- **Scroll**: Overlay content scrollable if exceeds viewport height
+
+**Chat System Messages**:
+- Form opening: "Please fill out the [task name] form above"
+- Processing: Loading indicator during workflow transition
+- Success: "Form submitted! Data saved successfully"
+- Error: "Please correct the errors in the form"
+
+**Three-Column Layout Preserved**:
+```
+┌─────────────┬──────────────┬─────────────────────┐
+│  Clients    │ Presentation │   Chat (default)    │
+│  List       │  & Status    │   Full Height       │
+└─────────────┴──────────────┴─────────────────────┘
+
+┌─────────────┬──────────────┬─────────────────────┐
+│  Clients    │ Presentation │  ╔═══════════════╗  │
+│  List       │  & Status    │  ║ Form Overlay  ║  │
+│             │              │  ╚═══════════════╝  │
+│             │              │  Chat (dimmed bkg)  │
+└─────────────┴──────────────┴─────────────────────┘
+```
+
+## Data Persistence Strategy
+
+**Client State Storage (POC)**:
+- **Format**: JSON files in `data/client_state/{clientId}.json`
+- **Structure**: Key-value store where key = clientId, value = state object
+- **State Schema**:
+  ```json
+  {
+    "clientId": "string",
+    "workflowId": "string",
+    "currentStepId": "string",
+    "currentStage": "string",
+    "collectedInputs": { "field": "value" },
+    "completedSteps": ["stepId1", "stepId2"],
+    "lastUpdated": "ISO 8601 timestamp"
+  }
+  ```
+- **Operations**:
+  - `saveClientState(clientId, state)` - Atomic write to JSON file
+  - `loadClientState(clientId)` - Read and parse JSON file
+  - `listClients()` - List all client IDs from directory
+- **P1 Migration Path**: Replace file I/O with database (PostgreSQL, MongoDB)
+- **Advantages for POC**:
+  - No database setup required
+  - Easy to inspect and debug
+  - Version control friendly (can commit sample states)
+  - Simple atomic operations with file system
+
+**Stage Progress Tracking**:
+- Engine computes stage status from step completion
+- Stage transitions when all non-optional steps in stage complete
+- UI displays stage headers with progress indicators
+- Persisted in client state for session continuity
+
 ## Minimal Endpoints
 - `GET /api/workflows?client_type=...&jurisdiction=...` → compiled machine JSON with resolved schemas
   - Workflow file loaded from disk
@@ -297,6 +444,7 @@ const UI_COMPONENT_REGISTRY = {
   - Task inheritance computed
   - Schemas merged into steps
   - Returns: fully compiled workflow ready for execution
+- Client state: File-based storage (no dedicated endpoint in POC; managed client-side)
 
 ## POC Task Breakdown
 1. Set up self-hosted CopilotKit runtime (~2 hours)

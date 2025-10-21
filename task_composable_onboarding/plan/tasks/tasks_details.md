@@ -436,6 +436,306 @@ export async function compileWorkflow(
 
 ---
 
+## Task 2B: Client State Persistence (~30 min)
+
+**Objective:** Implement file-based key-value storage for persisting client workflow state
+
+**Files:**
+- `lib/workflow/state-store.ts` - State persistence functions
+- `data/client_state/.gitkeep` - Ensure directory exists
+
+**Pseudocode:**
+
+```typescript
+// ═══════════════════════════════════════════════════════════════
+// lib/workflow/state-store.ts
+// ═══════════════════════════════════════════════════════════════
+
+import fs from 'fs/promises';
+import path from 'path';
+
+const STATE_DIR = path.join(process.cwd(), 'data', 'client_state');
+
+// State interface
+export interface ClientState {
+  clientId: string;
+  workflowId: string;
+  currentStepId: string;
+  currentStage?: string;
+  collectedInputs: Record<string, any>;
+  completedSteps: string[];
+  completedStages?: string[];
+  lastUpdated: string;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SAVE CLIENT STATE (ATOMIC WRITE)
+// ═══════════════════════════════════════════════════════════════
+
+export async function saveClientState(
+  clientId: string,
+  state: ClientState
+): Promise<void> {
+  /*
+  Purpose: Save client state to JSON file with atomic write
+
+  Algorithm:
+  1. Ensure state directory exists
+  2. Write to temporary file
+  3. Atomically rename temp file to final file
+  4. This prevents corruption from partial writes
+
+  Atomic Write Pattern:
+  - Write to {filename}.tmp
+  - Rename to {filename}
+  - File system guarantees rename is atomic
+  */
+
+  // Create directory if it doesn't exist
+  await fs.mkdir(STATE_DIR, { recursive: true });
+
+  const filePath = path.join(STATE_DIR, `${clientId}.json`);
+  const tempPath = `${filePath}.tmp`;
+
+  // Write to temporary file first
+  const jsonContent = JSON.stringify(state, null, 2);
+  await fs.writeFile(tempPath, jsonContent, 'utf8');
+
+  // Atomic rename (guaranteed by file system)
+  await fs.rename(tempPath, filePath);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOAD CLIENT STATE
+// ═══════════════════════════════════════════════════════════════
+
+export async function loadClientState(
+  clientId: string
+): Promise<ClientState | null> {
+  /*
+  Purpose: Load client state from JSON file
+
+  Algorithm:
+  1. Construct file path
+  2. Read file contents
+  3. Parse JSON
+  4. Return null if file doesn't exist
+  5. Throw error for other failures (corrupt JSON, permissions, etc.)
+
+  Error Handling:
+  - ENOENT (file not found) → return null (expected for new clients)
+  - Other errors → throw (unexpected, needs investigation)
+  */
+
+  const filePath = path.join(STATE_DIR, `${clientId}.json`);
+
+  try {
+    const content = await fs.readFile(filePath, 'utf8');
+    return JSON.parse(content) as ClientState;
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      return null; // File doesn't exist (new client)
+    }
+    // Other errors (permissions, corrupt JSON, etc.)
+    throw new Error(`Failed to load client state for ${clientId}: ${error.message}`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LIST ALL CLIENTS
+// ═══════════════════════════════════════════════════════════════
+
+export async function listClients(): Promise<string[]> {
+  /*
+  Purpose: Get list of all client IDs with saved state
+
+  Algorithm:
+  1. Read directory contents
+  2. Filter for .json files
+  3. Extract client ID from filename (remove .json extension)
+  4. Return array of client IDs
+
+  Error Handling:
+  - ENOENT (directory doesn't exist) → return empty array
+  - Other errors → throw
+  */
+
+  try {
+    const files = await fs.readdir(STATE_DIR);
+
+    // Filter JSON files and extract client IDs
+    return files
+      .filter(filename => filename.endsWith('.json'))
+      .map(filename => filename.replace('.json', ''));
+
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      return []; // Directory doesn't exist yet (no clients)
+    }
+    throw new Error(`Failed to list clients: ${error.message}`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DELETE CLIENT STATE
+// ═══════════════════════════════════════════════════════════════
+
+export async function deleteClientState(clientId: string): Promise<void> {
+  /*
+  Purpose: Delete client state file
+
+  Algorithm:
+  1. Construct file path
+  2. Delete file using fs.unlink
+  3. Throw error if file doesn't exist or can't be deleted
+  */
+
+  const filePath = path.join(STATE_DIR, `${clientId}.json`);
+  await fs.unlink(filePath);
+}
+```
+
+**Integration with Workflow Hook:**
+
+```typescript
+// Update lib/workflow/hooks.ts
+
+import { saveClientState, loadClientState } from './state-store';
+
+export function useWorkflowState(clientId: string) {
+  const [machine, setMachine] = useState<RuntimeMachine | null>(null);
+  const [currentStepId, setCurrentStepId] = useState<string>('');
+  const [collectedInputs, setCollectedInputs] = useState<Record<string, any>>({});
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // ═══════════════════════════════════════════════════════════════
+  // LOAD STATE ON MOUNT
+  // ═══════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    async function loadState() {
+      /*
+      Algorithm:
+      1. Try to load saved state for this client
+      2. If state exists, restore workflow and current step
+      3. If no state, this is a new client (will load fresh workflow)
+      */
+
+      const savedState = await loadClientState(clientId);
+
+      if (savedState) {
+        // Restore from saved state
+        setCurrentStepId(savedState.currentStepId);
+        setCollectedInputs(savedState.collectedInputs);
+
+        // Load the workflow machine
+        await loadWorkflow({ workflowId: savedState.workflowId });
+      }
+
+      setLoading(false);
+    }
+
+    loadState();
+  }, [clientId]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // SAVE STATE ON CHANGES
+  // ═══════════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    /*
+    Algorithm:
+    1. Skip if workflow not loaded or no current step
+    2. Construct state object
+    3. Save to file (debounced to avoid excessive writes)
+
+    Performance: Consider debouncing (e.g., 1 second delay)
+    to avoid saving on every keystroke
+    */
+
+    if (!machine || !currentStepId) return;
+
+    async function persistState() {
+      const state: ClientState = {
+        clientId,
+        workflowId: machine.workflowId,
+        currentStepId,
+        currentStage: currentStep?.stage,
+        collectedInputs,
+        completedSteps: [], // TODO: Track from progression history
+        completedStages: [], // TODO: Compute from stage engine
+        lastUpdated: new Date().toISOString()
+      };
+
+      await saveClientState(clientId, state);
+    }
+
+    // Save state (consider debouncing for production)
+    persistState();
+
+  }, [clientId, machine, currentStepId, collectedInputs]);
+
+  // ... rest of hook implementation
+}
+```
+
+**Test Cases:**
+
+```typescript
+describe('Client State Persistence', () => {
+  const testClientId = 'test_client_123';
+
+  afterEach(async () => {
+    // Clean up test file
+    try {
+      await deleteClientState(testClientId);
+    } catch (e) {
+      // Ignore if doesn't exist
+    }
+  });
+
+  test('saveClientState creates file', async () => {
+    const state: ClientState = {
+      clientId: testClientId,
+      workflowId: 'wf_test_v1',
+      currentStepId: 'step1',
+      collectedInputs: { name: 'Test' },
+      completedSteps: [],
+      lastUpdated: new Date().toISOString()
+    };
+
+    await saveClientState(testClientId, state);
+
+    const loaded = await loadClientState(testClientId);
+    expect(loaded).toEqual(state);
+  });
+
+  test('loadClientState returns null for non-existent file', async () => {
+    const result = await loadClientState('nonexistent_client');
+    expect(result).toBeNull();
+  });
+
+  test('listClients returns all client IDs', async () => {
+    await saveClientState('client_1', { /* ... */ });
+    await saveClientState('client_2', { /* ... */ });
+
+    const clients = await listClients();
+    expect(clients).toContain('client_1');
+    expect(clients).toContain('client_2');
+  });
+
+  test('deleteClientState removes file', async () => {
+    await saveClientState(testClientId, { /* ... */ });
+    await deleteClientState(testClientId);
+
+    const loaded = await loadClientState(testClientId);
+    expect(loaded).toBeNull();
+  });
+});
+```
+
+---
+
 ## Task 3: Component Registry
 
 **Reference**: tasks.md COMP-003
@@ -847,6 +1147,394 @@ export function useWorkflowState(workflowId: string) {
 **Context7 References:**
 - React hooks: `/websites/react_dev` - useState, useEffect custom hooks
 - CopilotKit state management: `/copilotkit/copilotkit` - Integration patterns
+
+---
+
+## Task 4E: Stage Modeling and Progression (~1 hour)
+
+**Objective:** Implement stage support for grouping workflow steps and tracking stage-level progress
+
+**Files to Modify:**
+- `lib/workflow/schema.ts` - Add StageDefinition interface
+- `lib/workflow/engine.ts` - Add stage computation functions
+- `lib/workflow/hooks.ts` - Expose stage state
+
+**Files to Create:**
+- `components/onboarding/stage-header.tsx` - Stage progress UI
+
+**Pseudocode:**
+
+```typescript
+// ═══════════════════════════════════════════════════════════════
+// lib/workflow/schema.ts - Add Stage Interfaces
+// ═══════════════════════════════════════════════════════════════
+
+export interface StageDefinition {
+  id: string;                           // Unique stage identifier
+  name: string;                         // Human-readable name
+  description?: string;                 // Optional description
+}
+
+export interface WorkflowDefinition {
+  id: string;
+  name: string;
+  version: number;
+  applies_to?: { /* ... */ };
+  stages?: StageDefinition[];           // NEW: Optional stages array
+  steps: WorkflowStepReference[];
+}
+
+export interface WorkflowStepReference {
+  id: string;
+  stage?: string;                       // NEW: Optional stage membership
+  task_ref: string;
+  next: { /* ... */ };
+}
+
+export interface RuntimeMachine {
+  workflowId: string;
+  version: number;
+  stages: StageDefinition[];            // NEW: Stages included in machine
+  initialStepId: string;
+  steps: CompiledWorkflowStep[];
+  stepIndexById: Record<string, number>;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// lib/workflow/engine.ts - Stage Computation Functions
+// ═══════════════════════════════════════════════════════════════
+
+export interface StageStatus {
+  stageId: string;
+  totalSteps: number;                   // Total steps in this stage
+  completedSteps: number;               // Completed steps
+  requiredSteps: number;                // Steps required for progression
+  isComplete: boolean;                  // All required steps done
+  progress: number;                     // Percentage (0-100)
+}
+
+// ─────────────────────────────────────────────────────────────
+// GET STAGE STATUS
+// ─────────────────────────────────────────────────────────────
+
+export function getStageStatus(
+  machine: RuntimeMachine,
+  stageId: string,
+  completedStepIds: string[]
+): StageStatus {
+  /*
+  Purpose: Compute completion status for a stage
+
+  Algorithm:
+  1. Find all steps belonging to this stage
+  2. Count total steps
+  3. Count completed steps (intersection with completedStepIds)
+  4. Determine required steps (exclude optional/conditional paths)
+  5. Compute completion percentage
+  6. Mark stage complete if all required steps done
+
+  Optional Steps:
+  - Steps only reachable via conditional transitions
+  - Example: EDD step only required if risk_score > 70
+  - These don't block stage progression
+  */
+
+  // Find all steps in this stage
+  const stageSteps = machine.steps.filter(step => step.stage === stageId);
+
+  const totalSteps = stageSteps.length;
+  const completedSteps = stageSteps.filter(step =>
+    completedStepIds.includes(step.id)
+  ).length;
+
+  // For POC: All steps are required (P1: handle optional steps)
+  const requiredSteps = totalSteps;
+
+  const progress = totalSteps > 0
+    ? Math.round((completedSteps / totalSteps) * 100)
+    : 100;
+
+  const isComplete = completedSteps >= requiredSteps;
+
+  return {
+    stageId,
+    totalSteps,
+    completedSteps,
+    requiredSteps,
+    isComplete,
+    progress
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// CAN PROGRESS TO NEXT STAGE
+// ─────────────────────────────────────────────────────────────
+
+export function canProgressToNextStage(
+  machine: RuntimeMachine,
+  currentStage: string,
+  completedStepIds: string[]
+): boolean {
+  /*
+  Purpose: Check if all required steps in current stage are complete
+
+  Algorithm:
+  1. Get stage status
+  2. Return isComplete flag
+  3. This determines if user can advance to next stage
+  */
+
+  const status = getStageStatus(machine, currentStage, completedStepIds);
+  return status.isComplete;
+}
+
+// ─────────────────────────────────────────────────────────────
+// GET ALL STAGE STATUSES
+// ─────────────────────────────────────────────────────────────
+
+export function getAllStageStatuses(
+  machine: RuntimeMachine,
+  completedStepIds: string[]
+): StageStatus[] {
+  /*
+  Purpose: Get status for all stages in workflow
+
+  Algorithm:
+  1. Map over stages array
+  2. Compute status for each stage
+  3. Return array of statuses
+
+  Use Case: Display stage progress indicators in UI
+  */
+
+  return machine.stages.map(stage =>
+    getStageStatus(machine, stage.id, completedStepIds)
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// GET CURRENT STAGE
+// ─────────────────────────────────────────────────────────────
+
+export function getCurrentStage(
+  machine: RuntimeMachine,
+  currentStepId: string
+): string | null {
+  /*
+  Purpose: Get the stage of the current step
+
+  Algorithm:
+  1. Find current step in machine
+  2. Return its stage field
+  3. Return null if step has no stage or step not found
+  */
+
+  const step = machine.steps.find(s => s.id === currentStepId);
+  return step?.stage || null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// lib/workflow/hooks.ts - Add Stage State to Hook
+// ═══════════════════════════════════════════════════════════════
+
+export function useWorkflowState(clientId: string) {
+  // ... existing state ...
+
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+
+  // ─────────────────────────────────────────────────────────────
+  // COMPUTED STAGE STATE
+  // ─────────────────────────────────────────────────────────────
+
+  const currentStage = useMemo(() => {
+    if (!machine || !currentStepId) return null;
+    return getCurrentStage(machine, currentStepId);
+  }, [machine, currentStepId]);
+
+  const stageStatuses = useMemo(() => {
+    if (!machine) return [];
+    return getAllStageStatuses(machine, completedSteps);
+  }, [machine, completedSteps]);
+
+  const completedStages = useMemo(() => {
+    return stageStatuses
+      .filter(status => status.isComplete)
+      .map(status => status.stageId);
+  }, [stageStatuses]);
+
+  const stageProgress = useMemo(() => {
+    if (!machine || !currentStage) return 0;
+    const status = getStageStatus(machine, currentStage, completedSteps);
+    return status.progress;
+  }, [machine, currentStage, completedSteps]);
+
+  // ─────────────────────────────────────────────────────────────
+  // TRACK COMPLETED STEPS
+  // ─────────────────────────────────────────────────────────────
+
+  const markStepComplete = useCallback((stepId: string) => {
+    /*
+    Purpose: Mark a step as completed
+
+    Algorithm:
+    1. Add stepId to completedSteps array (if not already present)
+    2. This triggers re-computation of stage statuses
+    3. Persist to client state
+    */
+
+    setCompletedSteps(prev => {
+      if (prev.includes(stepId)) return prev;
+      return [...prev, stepId];
+    });
+  }, []);
+
+  // Return extended hook interface
+  return {
+    // ... existing exports ...
+    currentStage,
+    stageStatuses,
+    completedStages,
+    stageProgress,
+    markStepComplete,
+    completedSteps
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// components/onboarding/stage-header.tsx - Stage UI Component
+// ═══════════════════════════════════════════════════════════════
+
+import { StageStatus } from '@/lib/workflow/engine';
+
+interface StageHeaderProps {
+  statuses: StageStatus[];
+  currentStage: string | null;
+}
+
+export function StageHeader({ statuses, currentStage }: StageHeaderProps) {
+  /*
+  Purpose: Display stage progress indicators
+
+  UI Layout:
+  [✓ Info Collection] → [◉ Compliance] → [○ Finalization]
+     (completed)         (in progress)      (pending)
+
+  Algorithm:
+  1. Map over stage statuses
+  2. Render each stage with:
+     - Checkmark if complete
+     - Filled circle if current
+     - Empty circle if pending
+  3. Show progress bar for current stage
+  */
+
+  return (
+    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded">
+      {statuses.map((status, index) => {
+        const isCurrent = status.stageId === currentStage;
+        const isComplete = status.isComplete;
+        const isPending = !isCurrent && !isComplete;
+
+        return (
+          <div key={status.stageId} className="flex items-center gap-2">
+            {/* Stage indicator */}
+            <div
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 rounded',
+                isCurrent && 'bg-blue-100 text-blue-700',
+                isComplete && 'bg-green-100 text-green-700',
+                isPending && 'bg-gray-200 text-gray-500'
+              )}
+            >
+              {/* Icon */}
+              {isComplete && <CheckCircle className="w-4 h-4" />}
+              {isCurrent && <Circle className="w-4 h-4 fill-current" />}
+              {isPending && <Circle className="w-4 h-4" />}
+
+              {/* Stage name */}
+              <span className="text-sm font-medium">
+                {status.stageId.replace(/_/g, ' ')}
+              </span>
+
+              {/* Progress percentage for current stage */}
+              {isCurrent && (
+                <span className="text-xs">({status.progress}%)</span>
+              )}
+            </div>
+
+            {/* Arrow between stages */}
+            {index < statuses.length - 1 && (
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+```
+
+**Test Cases:**
+
+```typescript
+describe('Stage Engine', () => {
+  const machine: RuntimeMachine = {
+    workflowId: 'test_wf',
+    version: 1,
+    stages: [
+      { id: 'stage1', name: 'Stage 1' },
+      { id: 'stage2', name: 'Stage 2' }
+    ],
+    steps: [
+      { id: 'step1', stage: 'stage1', /* ... */ },
+      { id: 'step2', stage: 'stage1', /* ... */ },
+      { id: 'step3', stage: 'stage2', /* ... */ }
+    ],
+    stepIndexById: { step1: 0, step2: 1, step3: 2 },
+    initialStepId: 'step1'
+  };
+
+  test('getStageStatus returns correct completion', () => {
+    const status = getStageStatus(machine, 'stage1', ['step1']);
+
+    expect(status.totalSteps).toBe(2);
+    expect(status.completedSteps).toBe(1);
+    expect(status.progress).toBe(50);
+    expect(status.isComplete).toBe(false);
+  });
+
+  test('getStageStatus marks stage complete when all steps done', () => {
+    const status = getStageStatus(machine, 'stage1', ['step1', 'step2']);
+
+    expect(status.completedSteps).toBe(2);
+    expect(status.progress).toBe(100);
+    expect(status.isComplete).toBe(true);
+  });
+
+  test('canProgressToNextStage validates completion', () => {
+    const canProgress1 = canProgressToNextStage(machine, 'stage1', ['step1']);
+    expect(canProgress1).toBe(false);
+
+    const canProgress2 = canProgressToNextStage(machine, 'stage1', ['step1', 'step2']);
+    expect(canProgress2).toBe(true);
+  });
+
+  test('getCurrentStage returns correct stage for step', () => {
+    expect(getCurrentStage(machine, 'step1')).toBe('stage1');
+    expect(getCurrentStage(machine, 'step3')).toBe('stage2');
+  });
+
+  test('getAllStageStatuses returns statuses for all stages', () => {
+    const statuses = getAllStageStatuses(machine, ['step1', 'step2']);
+
+    expect(statuses).toHaveLength(2);
+    expect(statuses[0].stageId).toBe('stage1');
+    expect(statuses[0].isComplete).toBe(true);
+    expect(statuses[1].stageId).toBe('stage2');
+    expect(statuses[1].isComplete).toBe(false);
+  });
+});
+```
 
 ---
 

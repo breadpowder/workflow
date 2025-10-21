@@ -7,15 +7,31 @@ applies_to:
   client_type: corporate
   jurisdictions: ["US", "CA", "GB"]
 
+# Stages define major phases of the workflow
+stages:
+  - id: information_collection
+    name: Information Collection
+    description: Gather client information and required documents
+
+  - id: compliance_review
+    name: Compliance Review
+    description: Review and verify compliance requirements
+
+  - id: finalization
+    name: Finalization
+    description: Final review and approval
+
 steps:
   # Step 1: Collect corporate contact information
   - id: collectContactInfo
+    stage: information_collection         # Belongs to Information Collection stage
     task_ref: contact_info/corporate     # Reference to task definition
     next:
       default: collectDocuments
 
   # Step 2: Collect business documents
   - id: collectDocuments
+    stage: information_collection         # Belongs to Information Collection stage
     task_ref: documents/corporate        # Reference to task definition
     next:
       conditions:
@@ -25,12 +41,14 @@ steps:
 
   # Step 3: Enhanced Due Diligence (conditional - only if risk_score > 70)
   - id: enhancedDueDiligence
+    stage: compliance_review              # Belongs to Compliance Review stage
     task_ref: due_diligence/enhanced     # Reference to task definition
     next:
       default: review
 
   # Step 4: Review and submit
   - id: review
+    stage: finalization                   # Belongs to Finalization stage
     task_ref: review/summary             # Reference to task definition
     next:
       default: END

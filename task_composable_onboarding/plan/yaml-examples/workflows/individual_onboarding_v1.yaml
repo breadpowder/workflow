@@ -7,21 +7,34 @@ applies_to:
   client_type: individual
   jurisdictions: ["US", "CA", "GB"]
 
+# Stages define major phases of the workflow
+stages:
+  - id: information_collection
+    name: Information Collection
+    description: Gather personal information and identity documents
+
+  - id: finalization
+    name: Finalization
+    description: Review and final approval
+
 steps:
   # Step 1: Collect individual contact information
   - id: collectContactInfo
+    stage: information_collection         # Belongs to Information Collection stage
     task_ref: contact_info/individual    # Reference to task definition
     next:
       default: collectDocuments
 
   # Step 2: Collect identity documents
   - id: collectDocuments
+    stage: information_collection         # Belongs to Information Collection stage
     task_ref: documents/individual       # Reference to task definition
     next:
       default: review
 
   # Step 3: Review and submit
   - id: review
+    stage: finalization                   # Belongs to Finalization stage
     task_ref: review/summary             # Reference to task definition
     next:
       default: END

@@ -110,7 +110,8 @@ The system implements a **four-layer architecture** that separates concerns and 
 explore_copilotkit/
 ├── app/                                # Next.js App Router
 │   ├── api/
-│   │   └── copilotkit/                 # Self-hosted runtime endpoint
+│   │   ├── copilotkit/                 # Self-hosted runtime endpoint
+│   │   └── workflows/                  # Workflow query endpoint (POC simplification)
 │   ├── page.tsx                        # Main onboarding page
 │   └── layout.tsx
 │
@@ -121,21 +122,28 @@ explore_copilotkit/
 │   │   ├── generic-document-upload.tsx
 │   │   └── generic-data-table.tsx
 │   │
-│   ├── onboarding/                     # Registry wrappers
+│   ├── onboarding/                     # Registry wrappers & overlays
 │   │   ├── generic-form-wrapper.tsx
 │   │   ├── generic-document-upload-wrapper.tsx
-│   │   └── generic-data-table-wrapper.tsx
+│   │   ├── generic-data-table-wrapper.tsx
+│   │   ├── form-overlay.tsx            # NEW: Form overlay container
+│   │   └── system-message.tsx          # NEW: Chat system messages
+│   │
+│   ├── chat/                           # NEW: Chat components
+│   │   ├── chat-section.tsx            # Chat message list and input
+│   │   └── message.tsx                 # Individual message component
 │   │
 │   └── layout/                         # Layout components
 │       ├── left-pane.tsx               # Client list
 │       ├── middle-pane.tsx             # Profile, timeline, required fields
-│       └── right-pane.tsx              # Form + chat
+│       └── right-pane.tsx              # Chat-first with overlay support
 │
 ├── lib/
 │   ├── workflow/                       # Workflow engine
 │   │   ├── schema.ts                   # TypeScript type definitions
 │   │   ├── engine.ts                   # Runtime machine, state transitions
 │   │   ├── loader.ts                   # Two-stage YAML loading
+│   │   ├── state-store.ts              # Client state persistence
 │   │   └── hooks.ts                    # useWorkflowState hook
 │   │
 │   ├── ui/
@@ -149,24 +157,29 @@ explore_copilotkit/
 │   │   ├── corporate_onboarding_v1.yaml
 │   │   └── individual_onboarding_v1.yaml
 │   │
-│   └── tasks/                          # Ground truth schemas (Level 2)
-│       ├── _base/                      # Base tasks for inheritance
-│       │   └── contact_info_base.yaml
-│       ├── contact_info/
-│       │   ├── corporate.yaml
-│       │   └── individual.yaml
-│       ├── documents/
-│       │   ├── corporate.yaml
-│       │   └── individual.yaml
-│       ├── due_diligence/
-│       │   └── enhanced.yaml
-│       └── review/
-│           └── summary.yaml
+│   ├── tasks/                          # Ground truth schemas (Level 2)
+│   │   ├── _base/                      # Base tasks for inheritance
+│   │   │   └── contact_info_base.yaml
+│   │   ├── contact_info/
+│   │   │   ├── corporate.yaml
+│   │   │   └── individual.yaml
+│   │   ├── documents/
+│   │   │   ├── corporate.yaml
+│   │   │   └── individual.yaml
+│   │   ├── due_diligence/
+│   │   │   └── enhanced.yaml
+│   │   └── review/
+│   │       └── summary.yaml
+│   │
+│   └── client_state/                   # Client workflow state (POC)
+│       └── {clientId}.json             # JSON key-value store
 │
 └── tests/
     ├── unit/                           # Unit tests
     ├── integration/                    # Integration tests
     └── conftest.ts                     # Test configuration
+
+**Note**: POC uses simplified endpoint `/api/workflows` instead of spec's `/composable_onboardings`. This is a conscious simplification; full API contract alignment is P1.
 ```
 
 ### 1.3 Technology Stack
@@ -398,8 +411,14 @@ applies_to:                              # When this workflow applies
   client_type: string                    # "corporate", "individual", "trust"
   jurisdictions: string[]                # ["US", "CA", "GB"]
 
+stages: (optional)                       # Workflow stages (major phases)
+  - id: string                           # Stage identifier
+    name: string                         # Human-readable stage name
+    description: string (optional)       # Stage description
+
 steps:                                   # Workflow steps
   - id: string                           # Step identifier
+    stage: string (optional)             # Stage this step belongs to (references stage.id)
     task_ref: string                     # Path to task file (e.g., "contact_info/corporate")
     next:                                # Transition rules
       conditions:                        # Conditional branching (optional)
@@ -420,15 +439,29 @@ applies_to:
   client_type: corporate
   jurisdictions: ["US", "CA", "GB"]
 
+# Stages define major phases
+stages:
+  - id: information_collection
+    name: Information Collection
+    description: Gather client information and documents
+  - id: compliance_review
+    name: Compliance Review
+    description: Review and verify compliance requirements
+  - id: finalization
+    name: Finalization
+    description: Final review and approval
+
 steps:
   # Step 1: Collect corporate contact information
   - id: collectContactInfo
+    stage: information_collection
     task_ref: contact_info/corporate     # Reference to task definition
     next:
       default: collectDocuments
 
   # Step 2: Collect business documents
   - id: collectDocuments
+    stage: information_collection
     task_ref: documents/corporate        # Reference to task definition
     next:
       conditions:
@@ -438,12 +471,14 @@ steps:
 
   # Step 3: Enhanced Due Diligence (conditional)
   - id: enhancedDueDiligence
+    stage: compliance_review
     task_ref: due_diligence/enhanced     # Reference to task definition
     next:
       default: review
 
   # Step 4: Review and submit
   - id: review
+    stage: finalization
     task_ref: review/summary             # Reference to task definition
     next:
       default: END
@@ -729,6 +764,7 @@ const compiledSteps = await Promise.all(
     // Return compiled step
     return {
       id: stepRef.id,
+      stage: stepRef.stage,                    // Stage membership
       task_ref: stepRef.task_ref,
       task_definition: resolvedTask,
       component_id: resolvedTask.component_id,
@@ -742,10 +778,86 @@ const compiledSteps = await Promise.all(
 return {
   workflowId: workflowDef.id,
   version: workflowDef.version,
+  stages: workflowDef.stages || [],           // Stage definitions
   initialStepId: compiledSteps[0].id,
   steps: compiledSteps,
   stepIndexById: buildStepIndex(compiledSteps)
 };
+```
+
+**Caching Strategy:**
+
+```typescript
+// Environment-aware caching for workflow loading
+const CACHE_CONFIG = {
+  development: {
+    enabled: false,                    // No caching in dev for hot-reload
+    ttl: 0
+  },
+  production: {
+    enabled: true,                     // Enable caching in production
+    ttl: 300,                          // 5-minute TTL
+    invalidateOnMtime: true            // Check file modification time
+  }
+};
+
+function shouldInvalidateCache(filePath: string, cachedTimestamp: number): boolean {
+  if (!CACHE_CONFIG[process.env.NODE_ENV].invalidateOnMtime) return false;
+
+  const stats = fs.statSync(filePath);
+  return stats.mtimeMs > cachedTimestamp;
+}
+
+// Loader implementation with caching
+const workflowCache = new Map();
+
+async function loadWorkflow(path: string): Promise<WorkflowDefinition> {
+  const config = CACHE_CONFIG[process.env.NODE_ENV || 'development'];
+
+  // Check cache if enabled
+  if (config.enabled && workflowCache.has(path)) {
+    const cached = workflowCache.get(path);
+
+    // Validate cache freshness
+    if (!shouldInvalidateCache(path, cached.timestamp)) {
+      return cached.data;
+    }
+  }
+
+  // Load from disk
+  const data = await loadYAML(path);
+
+  // Cache if enabled
+  if (config.enabled) {
+    workflowCache.set(path, {
+      data,
+      timestamp: Date.now()
+    });
+  }
+
+  return data;
+}
+```
+
+**YAML Validation Error Format:**
+
+```typescript
+// Provide file:line context for YAML authors
+try {
+  const workflow = parse(yamlContent);
+  validateWorkflow(workflow);
+} catch (error) {
+  throw new Error(
+    `Workflow validation failed in ${filename}:${lineNumber}\n` +
+    `  Field: ${fieldPath}\n` +
+    `  Error: ${error.message}`
+  );
+}
+
+// Example error message:
+// Workflow validation failed in corporate_onboarding_v1.yaml:15
+//   Field: steps[2].task_ref
+//   Error: Task file 'documents/nonexistent.yaml' not found
 ```
 
 #### 2.2.6 Validation Rules
@@ -796,6 +908,541 @@ return {
 - Test task definitions independently
 - Test workflow orchestration separately
 - Clear test boundaries
+
+---
+
+#### 2.2.8 Chat-First Dynamic UI Architecture
+
+**Core Principle**: Forms are transient overlays, not permanent UI sections. Chat is the primary, persistent interface.
+
+**Problem with Static Form Sections**:
+- Wastes screen real estate when no form needed
+- Chat becomes secondary (relegated to bottom)
+- Unclear when form is "active" vs. just visible
+- Poor mobile experience (small chat area)
+
+**Solution: Overlay Pattern**:
+- Chat occupies full right panel by default
+- Forms appear as overlays when needed, then dismiss
+- Clear visual hierarchy (overlay = active, chat = background)
+- Better mobile experience (full-screen modals)
+
+**Three UI States**:
+
+**State 1: Chat-Only (Default)**
+```tsx
+<RightPanel>
+  <ChatSection className="h-full" />
+</RightPanel>
+```
+- Full-height chat interface
+- No form UI visible
+- Chat history scrollable
+- Input box at bottom
+
+**State 2: Form Overlay Active**
+```tsx
+<RightPanel>
+  {/* Background: Chat (dimmed) */}
+  <ChatSection className="opacity-50 pointer-events-none" />
+
+  {/* Foreground: Form overlay */}
+  <FormOverlay
+    component={CurrentComponent}
+    data={formData}
+    onSubmit={handleSubmit}
+    onClose={handleClose}
+  />
+</RightPanel>
+```
+- Chat remains visible but dimmed (backdrop effect)
+- Form overlay appears centered or slides in from bottom
+- Overlay components:
+  - Backdrop (semi-transparent, click to close)
+  - Form container (centered, 80% width desktop, full-screen mobile)
+  - Close button (X) + Cancel action
+  - Submit button
+- Close triggers: X button, Cancel, Escape key, click backdrop
+
+**State 3: Post-Submission**
+```tsx
+// Overlay closes, chat returns to full height
+<RightPanel>
+  <ChatSection className="h-full">
+    {messages}
+    <SystemMessage type="success">
+      Form submitted successfully! Moving to next step...
+    </SystemMessage>
+  </ChatSection>
+</RightPanel>
+```
+- Overlay closes with animation
+- Success message appears in chat
+- Workflow progresses to next step
+- AI may confirm and continue conversation
+
+**Overlay State Management**:
+
+```typescript
+// lib/workflow/hooks.ts - Add to useWorkflowState
+
+interface OverlayState {
+  visible: boolean;
+  componentId: string | null;
+  data: any;
+  step: WorkflowStep | null;
+}
+
+const [overlayState, setOverlayState] = useState<OverlayState>({
+  visible: false,
+  componentId: null,
+  data: null,
+  step: null
+});
+
+// Show overlay when renderUI action triggered
+const showFormOverlay = useCallback((
+  componentId: string,
+  data: any,
+  step: WorkflowStep
+) => {
+  setOverlayState({
+    visible: true,
+    componentId,
+    data,
+    step
+  });
+
+  // Add system message to chat
+  addSystemMessage(`Please fill out the ${step.task_ref} form`);
+}, []);
+
+// Handle form submission
+const handleFormSubmit = useCallback((formData: any) => {
+  // 1. Update collected inputs
+  updateInputs(formData);
+
+  // 2. Mark step complete
+  if (overlayState.step) {
+    markStepComplete(overlayState.step.id);
+  }
+
+  // 3. Close overlay
+  setOverlayState({
+    visible: false,
+    componentId: null,
+    data: null,
+    step: null
+  });
+
+  // 4. Add success message
+  addSystemMessage("Form submitted successfully!");
+
+  // 5. Progress workflow
+  const result = progressToNextStep();
+
+  if (result.success) {
+    addSystemMessage(`Moving to step: ${result.nextStepId}`);
+  }
+}, [overlayState, updateInputs, markStepComplete, progressToNextStep]);
+
+// Handle overlay close without submitting
+const handleFormClose = useCallback(() => {
+  setOverlayState({
+    visible: false,
+    componentId: null,
+    data: null,
+    step: null
+  });
+
+  addSystemMessage("Form closed. You can resume by asking me to continue.");
+}, []);
+```
+
+**FormOverlay Component**:
+
+```typescript
+// components/onboarding/form-overlay.tsx
+
+interface FormOverlayProps {
+  componentId: string;
+  data: any;
+  onSubmit: (data: any) => void;
+  onClose: () => void;
+}
+
+export function FormOverlay({
+  componentId,
+  data,
+  onSubmit,
+  onClose
+}: FormOverlayProps) {
+  const Component = getComponent(componentId);
+
+  if (!Component) {
+    return (
+      <div className="overlay-error">
+        Component "{componentId}" not found
+      </div>
+    );
+  }
+
+  return (
+    <div className="form-overlay-container">
+      {/* Backdrop */}
+      <div
+        className="backdrop"
+        onClick={onClose}
+      />
+
+      {/* Form container */}
+      <div className="form-container">
+        {/* Close button */}
+        <button
+          className="close-button"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          ✕
+        </button>
+
+        {/* Actual form component */}
+        <Component
+          data={data}
+          status="inProgress"
+          onComplete={(result) => {
+            if (result.action === 'submit') {
+              onSubmit(result.data);
+            } else if (result.action === 'cancel') {
+              onClose();
+            }
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+**Styling (Tailwind Classes)**:
+
+```css
+/* Overlay container - full viewport */
+.form-overlay-container {
+  @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+}
+
+/* Backdrop */
+.backdrop {
+  @apply absolute inset-0 bg-black/50 backdrop-blur-sm;
+}
+
+/* Form container */
+.form-container {
+  @apply relative bg-white rounded-lg shadow-xl max-h-[90vh] overflow-y-auto;
+  @apply w-full max-w-2xl p-6;
+
+  /* Animation */
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile: Full screen */
+@media (max-width: 768px) {
+  .form-container {
+    @apply max-w-full h-full m-0 rounded-none;
+  }
+}
+```
+
+**Updated renderUI Action Flow**:
+
+```typescript
+// app/page.tsx (or main component)
+
+useCopilotAction({
+  name: "renderUI",
+  description: "Render a form to collect user input",
+  parameters: [
+    {
+      name: "componentId",
+      type: "string",
+      description: "Component to render",
+      enum: getRegisteredComponentIds()
+    },
+    {
+      name: "data",
+      type: "object",
+      description: "Initial data for the form"
+    }
+  ],
+
+  // OLD: Inline rendering
+  // renderAndWaitForResponse: ({ args, status }) => {
+  //   return <Component data={args.data} status={status} />
+  // }
+
+  // NEW: Trigger overlay
+  handler: async ({ args }) => {
+    const { componentId, data } = args;
+    const currentStep = getCurrentStep();
+
+    // Show overlay (state update triggers UI)
+    showFormOverlay(componentId, data, currentStep);
+
+    // Return message (not component)
+    return `Opening ${componentId} form. Please complete and submit.`;
+  }
+});
+```
+
+**Chat System Messages**:
+
+```typescript
+// components/chat/system-message.tsx
+
+interface SystemMessageProps {
+  type: 'info' | 'success' | 'error' | 'warning';
+  children: React.ReactNode;
+}
+
+export function SystemMessage({ type, children }: SystemMessageProps) {
+  const styles = {
+    info: 'bg-blue-50 border-blue-200 text-blue-800',
+    success: 'bg-green-50 border-green-200 text-green-800',
+    error: 'bg-red-50 border-red-200 text-red-800',
+    warning: 'bg-yellow-50 border-yellow-200 text-yellow-800'
+  };
+
+  return (
+    <div className={`system-message ${styles[type]}`}>
+      <Icon type={type} />
+      <span>{children}</span>
+    </div>
+  );
+}
+```
+
+**Benefits of Overlay Pattern**:
+
+1. **Better UX**: Chat remains central; forms are temporary interruptions
+2. **Cleaner Interface**: No empty form sections when not needed
+3. **Mobile-Friendly**: Natural modal pattern for small screens
+4. **Clear State**: Overlay = active form, chat = conversation
+5. **Focus Management**: Backdrop dims background, draws attention to form
+6. **Flexible**: Easy to add animations, transitions, accessibility
+7. **Testable**: Clear component boundaries, mockable state
+
+**Accessibility Considerations**:
+
+- Focus trap: Tab cycles within overlay when open
+- Escape key closes overlay
+- ARIA labels: `role="dialog"`, `aria-modal="true"`
+- Focus management: Focus first input when overlay opens, restore focus when closes
+- Screen reader: Announce form opening and closing
+
+---
+
+### 2.3 Client State Persistence
+
+#### 2.3.1 Storage Strategy (POC)
+
+**File-Based Key-Value Store:**
+- Location: `data/client_state/{clientId}.json`
+- Format: JSON files, one per client
+- Atomic writes using temp file + rename pattern
+
+**State Schema:**
+
+```typescript
+interface ClientState {
+  clientId: string;                    // Unique client identifier
+  workflowId: string;                  // Current workflow being executed
+  currentStepId: string;               // Current step in workflow
+  currentStage?: string;               // Current stage (if stages defined)
+  collectedInputs: Record<string, any>; // All collected field data
+  completedSteps: string[];            // Array of completed step IDs
+  completedStages?: string[];          // Array of completed stage IDs
+  lastUpdated: string;                 // ISO 8601 timestamp
+}
+```
+
+**Example State File** (`data/client_state/client_123.json`):
+
+```json
+{
+  "clientId": "client_123",
+  "workflowId": "wf_corporate_v1",
+  "currentStepId": "collectDocuments",
+  "currentStage": "information_collection",
+  "collectedInputs": {
+    "legal_name": "Acme Corporation",
+    "contact_email": "info@acme.com",
+    "contact_phone": "+1-555-0123"
+  },
+  "completedSteps": ["collectContactInfo"],
+  "completedStages": [],
+  "lastUpdated": "2025-10-21T14:30:00.000Z"
+}
+```
+
+#### 2.3.2 State Operations
+
+**Core Functions:**
+
+```typescript
+// lib/workflow/state-store.ts
+
+import fs from 'fs/promises';
+import path from 'path';
+
+const STATE_DIR = path.join(process.cwd(), 'data', 'client_state');
+
+// Save client state (atomic write)
+export async function saveClientState(
+  clientId: string,
+  state: ClientState
+): Promise<void> {
+  await fs.mkdir(STATE_DIR, { recursive: true });
+
+  const filePath = path.join(STATE_DIR, `${clientId}.json`);
+  const tempPath = `${filePath}.tmp`;
+
+  // Write to temp file first
+  await fs.writeFile(
+    tempPath,
+    JSON.stringify(state, null, 2),
+    'utf8'
+  );
+
+  // Atomic rename
+  await fs.rename(tempPath, filePath);
+}
+
+// Load client state
+export async function loadClientState(
+  clientId: string
+): Promise<ClientState | null> {
+  const filePath = path.join(STATE_DIR, `${clientId}.json`);
+
+  try {
+    const content = await fs.readFile(filePath, 'utf8');
+    return JSON.parse(content);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return null; // File doesn't exist
+    }
+    throw error; // Other errors
+  }
+}
+
+// List all client IDs
+export async function listClients(): Promise<string[]> {
+  try {
+    const files = await fs.readdir(STATE_DIR);
+    return files
+      .filter(f => f.endsWith('.json'))
+      .map(f => f.replace('.json', ''));
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return []; // Directory doesn't exist yet
+    }
+    throw error;
+  }
+}
+
+// Delete client state
+export async function deleteClientState(clientId: string): Promise<void> {
+  const filePath = path.join(STATE_DIR, `${clientId}.json`);
+  await fs.unlink(filePath);
+}
+```
+
+#### 2.3.3 Integration with Workflow Hook
+
+**Update `useWorkflowState` hook to persist state:**
+
+```typescript
+// lib/workflow/hooks.ts
+
+import { saveClientState, loadClientState } from './state-store';
+
+export function useWorkflowState(clientId: string) {
+  // ... existing state ...
+
+  // Load state on mount
+  useEffect(() => {
+    async function loadState() {
+      const savedState = await loadClientState(clientId);
+      if (savedState) {
+        setCurrentStepId(savedState.currentStepId);
+        setCollectedInputs(savedState.collectedInputs);
+        // Load workflow by ID
+        await loadWorkflow(savedState.workflowId);
+      }
+    }
+    loadState();
+  }, [clientId]);
+
+  // Save state on changes
+  useEffect(() => {
+    if (!machine || !currentStepId) return;
+
+    async function persistState() {
+      await saveClientState(clientId, {
+        clientId,
+        workflowId: machine.workflowId,
+        currentStepId,
+        currentStage: currentStep?.stage,
+        collectedInputs,
+        completedSteps: [], // Computed from progression history
+        lastUpdated: new Date().toISOString()
+      });
+    }
+
+    persistState();
+  }, [clientId, machine, currentStepId, collectedInputs]);
+
+  // ... rest of hook ...
+}
+```
+
+#### 2.3.4 P1 Migration Path
+
+**Database Schema (PostgreSQL):**
+
+```sql
+CREATE TABLE client_states (
+  client_id VARCHAR(255) PRIMARY KEY,
+  workflow_id VARCHAR(255) NOT NULL,
+  current_step_id VARCHAR(255) NOT NULL,
+  current_stage VARCHAR(255),
+  collected_inputs JSONB NOT NULL,
+  completed_steps TEXT[] NOT NULL,
+  completed_stages TEXT[],
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_client_states_workflow ON client_states(workflow_id);
+CREATE INDEX idx_client_states_stage ON client_states(current_stage);
+```
+
+**Migration Strategy:**
+1. Implement database adapter matching file-store interface
+2. Run migration script to import JSON files into database
+3. Switch environment variable to use database adapter
+4. Maintain file-store for local development
 
 ---
 

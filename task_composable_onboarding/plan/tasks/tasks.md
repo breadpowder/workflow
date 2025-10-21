@@ -1,9 +1,9 @@
 # Composable Onboarding POC - Task Breakdown
 
 **Project**: Composable Onboarding Proof of Concept
-**Architecture**: Two-Level YAML + Schema-Driven Components + Self-Hosted CopilotKit
-**Total Tasks**: 14
-**Total Estimated Time**: 18-20 hours
+**Architecture**: Two-Level YAML + Schema-Driven Components + Self-Hosted CopilotKit + Stages + Persistence
+**Total Tasks**: 16 (added Task 2B: Client State Persistence, Task 4E: Stage Support)
+**Total Estimated Time**: 19.5-21.5 hours
 **Status**: Ready for Implementation
 
 ---
@@ -103,6 +103,9 @@ Implement two-stage YAML loading system that separates workflow orchestration fr
 - ✅ Workflow selection works by `client_type` and `jurisdiction`
 - ✅ Compiled workflow includes resolved schemas from tasks
 - ✅ GET `/api/workflows?client_type=...&jurisdiction=...` returns compiled workflow
+- ✅ Caching strategy: dev mode (NODE_ENV=development) disables cache, prod mode enables with mtime invalidation
+- ✅ YAML validation errors include file:line context for easy debugging
+- ✅ Compiled workflow includes `stages` array and step `stage` fields
 
 ### Files to Create
 
@@ -136,6 +139,71 @@ Implement two-stage YAML loading system that separates workflow orchestration fr
 - implement_plan.md: Section 3, Task 2
 - strategy.md: Two-Level YAML Architecture
 - implement_plan.md: Section 2.2 (Two-Level YAML Architecture)
+
+---
+
+## Task 2B: Client State Persistence
+
+**ID**: COMP-002B
+**Priority**: Medium
+**Estimated Time**: 30 minutes
+**Dependencies**: None
+
+### Description
+
+Implement file-based key-value storage for persisting client workflow state across sessions. Each client's state is stored in a JSON file with atomic write operations.
+
+**Key Innovation**: Simple file-based persistence for POC with clear migration path to database in P1.
+
+### Objectives
+
+- Create `lib/workflow/state-store.ts` with persistence functions
+- Implement atomic write operations (temp file + rename pattern)
+- Support save, load, list, and delete operations
+- Integrate with `useWorkflowState` hook for automatic persistence
+- Store state in `data/client_state/{clientId}.json`
+
+### Acceptance Criteria
+
+- ✅ `saveClientState(clientId, state)` writes JSON file atomically
+- ✅ `loadClientState(clientId)` reads and parses JSON file
+- ✅ `listClients()` returns array of all client IDs
+- ✅ `deleteClientState(clientId)` removes state file
+- ✅ State directory created automatically if missing
+- ✅ Handles missing files gracefully (returns null for loadClientState)
+- ✅ State includes: clientId, workflowId, currentStepId, currentStage, collectedInputs, completedSteps, lastUpdated
+- ✅ `useWorkflowState` hook loads state on mount
+- ✅ `useWorkflowState` hook saves state on changes (currentStepId, collectedInputs)
+- ✅ Unit tests for all state-store functions
+
+### Files to Create
+
+- `lib/workflow/state-store.ts` - State persistence functions
+- `data/client_state/.gitkeep` - Ensure directory tracked by git
+
+### Testing Requirements
+
+- **Unit Tests**:
+  - Test save operation creates file
+  - Test load operation reads file correctly
+  - Test load returns null for non-existent file
+  - Test list operation returns all client IDs
+  - Test delete operation removes file
+  - Test atomic write (temp file → rename)
+- **Integration Test**: Test hook load/save cycle
+
+### Technical Notes
+
+- Use `fs/promises` for async file operations
+- Atomic writes: write to `{path}.tmp`, then `fs.rename()` to final path
+- JSON format with 2-space indentation for readability
+- Create `data/client_state/` directory on first write
+- Error handling: ENOENT → null (not found), other errors → throw
+
+### References
+
+- implement_plan.md: Section 2.3 (Client State Persistence)
+- strategy.md: Data Persistence Strategy
 
 ---
 
@@ -420,6 +488,75 @@ Create custom React hook (`useWorkflowState`) that manages workflow state, curre
 
 ---
 
+## Task 4E: Stage Modeling and Progression
+
+**ID**: COMP-004E
+**Priority**: Medium
+**Estimated Time**: 1 hour
+**Dependencies**: Task 4A (Machine Compilation), Task 4B (Expression Evaluation)
+
+### Description
+
+Implement stage support for grouping workflow steps into major phases. Stages provide higher-level progress tracking and enable "complete all tasks in a stage → advance to next stage" semantics.
+
+### Objectives
+
+- Add `stages` array to WorkflowDefinition schema
+- Add optional `stage` field to WorkflowStep schema
+- Implement `getStageStatus()` function to compute stage completion
+- Implement `canProgressToNextStage()` function
+- Update `RuntimeMachine` to include stage definitions
+- Expose stage information in `useWorkflowState` hook
+
+### Acceptance Criteria
+
+- ✅ `WorkflowDefinition` includes optional `stages: StageDefinition[]`
+- ✅ `StageDefinition` interface includes: id, name, description
+- ✅ `WorkflowStep` includes optional `stage: string` field
+- ✅ `RuntimeMachine` includes `stages` array
+- ✅ `getStageStatus(machine, stageId, completedSteps)` returns completion percentage
+- ✅ `canProgressToNextStage(machine, currentStage, completedSteps)` validates all non-optional steps complete
+- ✅ `useWorkflowState` hook exposes `currentStage`, `stageProgress`, and `completedStages`
+- ✅ MiddlePane UI displays stage headers with progress indicators
+- ✅ Stage progression logic: all required steps in stage → next stage
+- ✅ Unit tests for stage computation functions
+
+### Files to Modify
+
+- `lib/workflow/schema.ts` - Add StageDefinition interface and update WorkflowDefinition
+- `lib/workflow/engine.ts` - Add getStageStatus and canProgressToNextStage functions
+- `lib/workflow/hooks.ts` - Add stage-related state and computed values
+
+### Files to Create
+
+- `components/onboarding/stage-header.tsx` - Stage progress indicator component
+
+### Testing Requirements
+
+- **Unit Tests**:
+  - Test getStageStatus with all steps complete
+  - Test getStageStatus with partial completion
+  - Test canProgressToNextStage returns true when stage complete
+  - Test canProgressToNextStage returns false when steps missing
+  - Test stage ordering and transitions
+- **Integration Test**: Test complete workflow with stage transitions
+
+### Technical Notes
+
+- Stages are optional; workflows without stages still work
+- Step `stage` field references `stages[].id`
+- Stage completion = all non-optional steps in stage are completed
+- Optional steps (conditional paths) don't block stage progression
+- UI shows current stage highlighted, completed stages marked, future stages dimmed
+
+### References
+
+- feature-spec.md: Lines 10-12, 49-53 (stage requirements)
+- implement_plan.md: Section 2.2.2 (stages in workflow schema)
+- strategy.md: Stage Progress Tracking
+
+---
+
 ## Task 5A: Field Schema Type Definitions
 
 **ID**: COMP-005A
@@ -677,10 +814,10 @@ Create wrapper components that adapt schema-driven UI components to the registry
 
 ### Objectives
 
-- Implement `GenericFormWrapper`
-- Implement `GenericDocumentUploadWrapper` (placeholder)
-- Implement `GenericDataTableWrapper` (placeholder)
-- Implement `ReviewSummaryWrapper` (placeholder)
+- Implement `GenericFormWrapper` (fully functional)
+- Implement `GenericDocumentUploadWrapper` (placeholder - P1)
+- Implement `GenericDataTableWrapper` (placeholder - P1)
+- Implement `ReviewSummaryWrapper` (fully functional - REQUIRED for POC)
 - Register all wrappers in registry
 
 ### Acceptance Criteria
@@ -691,8 +828,16 @@ Create wrapper components that adapt schema-driven UI components to the registry
 - ✅ Wrapper handles `onCancel` → `onComplete({ action: 'cancel', data: {} })`
 - ✅ Wrapper passes `status` to enable loading states
 - ✅ All 4 wrappers registered in registry
-- ✅ Placeholder wrappers return "Coming soon" message
+- ✅ **ReviewSummaryWrapper is fully functional** (NOT placeholder):
+  - Reads all collected inputs from workflow state
+  - Displays data organized by sections (from YAML task schema)
+  - Shows field-level validation/completion status
+  - Provides "Edit" and "Confirm" action buttons
+  - Handles onEdit → `onComplete({ action: 'edit', data: {} })`
+  - Handles onConfirm → `onComplete({ action: 'confirm', data: { confirmed: true } })`
+- ✅ Placeholder wrappers (document-upload, data-table) return "Coming soon" message
 - ✅ Integration test: Registry → Wrapper → Component flow
+- ✅ **POC acceptance met: 2 fully functional components (form + review-summary)**
 
 ### Files to Create
 

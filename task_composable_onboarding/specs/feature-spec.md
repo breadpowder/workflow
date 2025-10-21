@@ -22,6 +22,10 @@ Goals (P0 from DOCX, aligned to current architecture):
 - Decoupled actions and UI via a component registry:
   - Actions declare intent; `componentId` selects UI at render time.
   - Required fields enforcement blocks transitions until satisfied.
+- Client state persistence (POC):
+  - File-based key-value storage in `data/client_state/{clientId}.json`
+  - Persists workflow progress (currentStepId, collectedInputs, stage status)
+  - Simple JSON format for POC; database migration path documented for P1
 - Role-based access (P1 design, P0 guardrails):
   - Read-only can view clients, stages, and task status.
   - Edit-role can update task fields and mark complete.
@@ -65,10 +69,93 @@ Engine/loader (P0):
 UI integration (P0):
 - Actions accept `componentId` and `payload`; a registry resolves `componentId → React component`.
 - Progression is driven by engine helpers; UI cannot advance when required fields are missing.
+- **Chat-first overlay pattern**: Forms render as overlays on top of chat; chat remains primary interface.
+
+UI/UX Flow (P0):
+- Right panel starts as chat-only (full height)
+- When form needed: overlay slides in/appears on top of chat with backdrop
+- Form submission: overlay closes, returns to chat with success message
+- Workflow progresses based on form data and YAML transitions
 
 Reference workflows (examples from DOCX, for test data):
 - Institutional: Stages for Client Information, Account Setup, Compliance Review, Finalization with representative tasks (KYC, corporate docs, AML checks, W8/W9, activation).
 - SMA: Stages for Initial Setup, Custodian Integration, Activation (contact details, portfolio guidelines, custodian account, holding file template, test trade cycle).
+
+## UI/UX Requirements (Dynamic Chat-First Flow)
+
+**Primary Interaction Model**: Chat-driven workflow with on-demand form overlays
+
+### Right Panel Behavior
+
+**State 1: Chat-Only (Default)**
+- Full-height chat interface
+- No form UI visible
+- AI guides user through conversation
+- Chat history scrollable
+- Input box at bottom
+
+**State 2: Form Overlay (When Needed)**
+- Form appears as overlay on top of chat
+- Chat remains visible but dimmed (backdrop)
+- Overlay contains:
+  - Form component from registry
+  - Submit and Close/Cancel buttons
+  - Validation messages inline
+- Overlay sizing:
+  - Desktop: 80% width, centered, max-height with scroll
+  - Mobile: Full-screen modal
+- Close triggers: X button, Cancel, Escape key, click backdrop
+- Animation: Slide-in from bottom or fade-in (200-300ms)
+
+**State 3: Post-Submission (Return to Chat)**
+- Overlay closes automatically on successful submit
+- Returns to full-height chat
+- System message appears: "Form submitted successfully!"
+- AI may confirm and proceed
+- Workflow advances to next step
+
+**Error State**
+- Validation errors keep overlay open
+- Error messages shown in form
+- User corrects and resubmits
+- Close/Cancel returns to chat without saving
+
+### Three-Column Layout
+
+```
+┌─────────────┬──────────────┬─────────────────────┐
+│  Clients    │ Presentation │   Chat (Default)    │
+│  List       │  & Status    │  - Messages         │
+│             │  - Profile   │  - Input            │
+│             │  - Timeline  │                     │
+│             │  - Stages    │                     │
+│             │  - Required  │                     │
+│             │    Fields    │                     │
+└─────────────┴──────────────┴─────────────────────┘
+
+When form overlay active:
+┌─────────────┬──────────────┬─────────────────────┐
+│  Clients    │ Presentation │  ┌───────────────┐  │
+│  List       │  & Status    │  │ Form Overlay  │  │
+│             │              │  │ [Fields...]   │  │
+│             │              │  │ [Submit] [X]  │  │
+│             │              │  └───────────────┘  │
+│             │              │  Chat (dimmed bkg)  │
+└─────────────┴──────────────┴─────────────────────┘
+```
+
+### Chat System Messages
+
+- Form opening: "Please fill out the form to continue"
+- Submit success: "Form submitted! Moving to [next step]..."
+- Validation error: "Please correct errors in the form"
+- Processing: Loading indicator during workflow transition
+
+### Optional Manual Triggers
+
+- Middle pane "Required Fields" section may include "Open Form" button
+- Provides non-AI way to access current form
+- Opens same overlay as AI-driven flow
 
 ## Non-Functional Requirements
 - P0 single-user focus; acceptable page-to-page response < 1s for typical operations.
@@ -77,6 +164,9 @@ Reference workflows (examples from DOCX, for test data):
 - P1: Introduce RBAC and persistent storage; plan for concurrency and basic auditability.
 
 ## API Contracts (POC)
+
+**Note**: The POC uses simplified endpoints (`/api/workflows`, `/api/copilotkit`) for faster implementation. The full API contract below represents the P1 production design. POC endpoints provide equivalent functionality with simpler naming.
+
 ```yaml
 openapi: 3.1.0
 info:
@@ -95,6 +185,10 @@ paths:
     post:
       summary: Update task values and recompute next step
 ```
+
+**POC Implementation**:
+- GET `/api/workflows?client_type=X&jurisdiction=Y` → returns compiled RuntimeMachine
+- Client state managed via file-based storage (`data/client_state/{clientId}.json`)
 
 ## Success Metrics
 - YAML edits reflect in the UI without code changes (reload only).
