@@ -1,0 +1,37 @@
+id: wf_corporate_v1
+name: Corporate Onboarding v1
+version: 1
+description: Complete onboarding workflow for corporate entities
+
+applies_to:
+  client_type: corporate
+  jurisdictions: ["US", "CA", "GB"]
+
+# Stages define major phases
+stages:
+  - id: information_collection
+    name: Information Collection
+    description: Gather client information and documents
+
+  - id: compliance_review
+    name: Compliance Review
+    description: Review and verify compliance requirements
+
+  - id: finalization
+    name: Finalization
+    description: Final review and approval
+
+steps:
+  # Step 1: Collect corporate contact information
+  - id: collectContactInfo
+    stage: information_collection
+    task_ref: contact_info/corporate
+    next:
+      default: review
+
+  # Step 2: Review and submit
+  - id: review
+    stage: finalization
+    task_ref: review/summary
+    next:
+      default: END

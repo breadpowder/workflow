@@ -1,0 +1,35 @@
+id: task_review_summary
+name: Review Summary
+description: Review and confirm all collected information before submission
+version: 1
+
+component_id: review-summary
+
+required_fields:
+  - confirmed
+
+schema:
+  sections:
+    - id: contact_info
+      title: "Contact Information"
+      description: "Review your contact details"
+
+    - id: documents
+      title: "Documents"
+      description: "Review uploaded documents"
+
+  actions:
+    - id: edit
+      label: "Edit Information"
+      type: secondary
+
+    - id: confirm
+      label: "Confirm and Submit"
+      type: primary
+
+expected_output_fields:
+  - confirmed
+
+tags:
+  - review
+  - submission
