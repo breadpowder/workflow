@@ -5,6 +5,11 @@ version: 1
 
 component_id: form
 
+# Base task defines common required fields
+required_fields:
+  - email
+  - phone
+
 schema:
   fields:
     # Common field: Email

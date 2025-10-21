@@ -76,7 +76,6 @@ applies_to:                              # When this workflow applies
 steps:                                   # Workflow steps
   - id: string                           # Step identifier
     task_ref: string                     # Path to task file (e.g., "contact_info/corporate")
-    required_fields: string[]            # Fields that must be collected
     next:                                # Transition rules
       conditions:                        # Conditional branching (optional)
         - when: string                   # Expression (e.g., "risk_score > 70")
@@ -102,22 +101,12 @@ steps:
   # Step 1: Collect corporate contact information
   - id: collectContactInfo
     task_ref: contact_info/corporate     # Reference to task definition
-    required_fields:
-      - legal_name
-      - entity_type
-      - jurisdiction
-      - business_email
-      - business_phone
     next:
       default: collectDocuments
 
   # Step 2: Collect business documents
   - id: collectDocuments
     task_ref: documents/corporate        # Reference to task definition
-    required_fields:
-      - business_registration
-      - tax_id
-      - proof_of_address
     next:
       conditions:
         - when: "risk_score > 70"
@@ -127,17 +116,12 @@ steps:
   # Step 3: Enhanced Due Diligence (conditional)
   - id: enhancedDueDiligence
     task_ref: due_diligence/enhanced     # Reference to task definition
-    required_fields:
-      - source_of_funds
-      - business_purpose
-      - expected_transaction_volume
     next:
       default: review
 
   # Step 4: Review and submit
   - id: review
     task_ref: review/summary             # Reference to task definition
-    required_fields: []
     next:
       default: END
 ```
@@ -171,6 +155,8 @@ version: number                          # Task version (managed within file)
 extends: string (optional)               # Base task to inherit from (e.g., "_base/contact_info_base")
 
 component_id: string                     # UI component to render ("form", "document-upload", "data-table", "review-summary")
+
+required_fields: string[]                # Fields that must be collected to complete this task
 
 schema:                                  # Ground truth schema definition
   # For component_id: "form"
@@ -272,6 +258,14 @@ version: 1
 extends: _base/contact_info_base         # Inherit email and phone from base
 
 component_id: form
+
+# Fields required to complete this task
+required_fields:
+  - legal_name
+  - entity_type
+  - jurisdiction
+  - business_email
+  - business_phone
 
 schema:
   fields:

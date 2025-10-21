@@ -5,6 +5,9 @@ version: 1
 
 component_id: review-summary
 
+# Review task doesn't collect new fields, just displays collected data
+required_fields: []
+
 schema:
   sections:
     - id: contact_info

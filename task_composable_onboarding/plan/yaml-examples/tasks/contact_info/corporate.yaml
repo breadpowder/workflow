@@ -7,6 +7,14 @@ extends: _base/contact_info_base         # Inherit email and phone from base
 
 component_id: form
 
+# Fields required to complete this task
+required_fields:
+  - legal_name
+  - entity_type
+  - jurisdiction
+  - business_email
+  - business_phone
+
 schema:
   fields:
     # Corporate-specific field: Legal Name

@@ -5,6 +5,11 @@ version: 1
 
 component_id: document-upload
 
+# Documents required to complete this task
+required_fields:
+  - government_id
+  - proof_of_address
+
 schema:
   documents:
     - id: government_id

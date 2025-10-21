@@ -5,6 +5,14 @@ version: 1
 
 component_id: form
 
+# Fields required to complete this task
+required_fields:
+  - source_of_funds
+  - business_purpose
+  - expected_transaction_volume
+  - politically_exposed
+  - high_risk_countries
+
 schema:
   fields:
     - name: source_of_funds
