@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { CopilotKit } from '@copilotkit/react-core';
+import '@/lib/ui/registry-init'; // Initialize component registry
 
 const inter = Inter({ subsets: ['latin'] });
 
