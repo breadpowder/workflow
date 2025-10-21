@@ -1,0 +1,77 @@
+id: task_contact_info_corporate
+name: Corporate Contact Information
+description: Collect contact information for corporate entities
+version: 1
+
+extends: _base/contact_info_base
+
+component_id: form
+
+required_fields:
+  - legal_name
+  - entity_type
+  - jurisdiction
+  - business_email
+  - business_phone
+
+schema:
+  fields:
+    - name: legal_name
+      label: "Legal Business Name"
+      type: text
+      required: true
+      placeholder: "Acme Corporation"
+      helpText: "Official registered business name"
+      validation:
+        minLength: 2
+        maxLength: 200
+
+    - name: entity_type
+      label: "Entity Type"
+      type: select
+      required: true
+      options:
+        - value: corporation
+          label: "Corporation (C-Corp or S-Corp)"
+        - value: llc
+          label: "Limited Liability Company (LLC)"
+        - value: partnership
+          label: "Partnership (GP or LP)"
+
+    - name: jurisdiction
+      label: "Jurisdiction of Incorporation"
+      type: select
+      required: true
+      options:
+        - value: US
+          label: "United States"
+        - value: CA
+          label: "Canada"
+        - value: GB
+          label: "United Kingdom"
+
+    # Inherit email field as business_email
+    - name: business_email
+      inherits: email
+      label: "Business Email Address"
+      placeholder: "contact@acmecorp.com"
+
+    # Inherit phone field as business_phone
+    - name: business_phone
+      inherits: phone
+      label: "Business Phone Number"
+
+  layout: two-column
+  submitLabel: "Continue to Documents"
+
+expected_output_fields:
+  - legal_name
+  - entity_type
+  - jurisdiction
+  - business_email
+  - business_phone
+
+tags:
+  - contact-info
+  - corporate
+  - kyc

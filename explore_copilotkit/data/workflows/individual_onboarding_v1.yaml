@@ -1,0 +1,33 @@
+id: wf_individual_v1
+name: Individual Onboarding v1
+version: 1
+description: Onboarding workflow for individual clients
+
+applies_to:
+  client_type: individual
+  jurisdictions: ["US", "CA", "GB"]
+
+# Stages for individual workflow
+stages:
+  - id: information_collection
+    name: Information Collection
+    description: Collect personal information
+
+  - id: finalization
+    name: Finalization
+    description: Review and finalize
+
+steps:
+  # Step 1: Collect individual contact information
+  - id: collectContactInfo
+    stage: information_collection
+    task_ref: contact_info/individual
+    next:
+      default: review
+
+  # Step 2: Review and submit
+  - id: review
+    stage: finalization
+    task_ref: review/summary
+    next:
+      default: END
