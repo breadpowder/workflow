@@ -1,856 +1,961 @@
-# Task Breakdown (POC – Self-Hosted + YAML + Decoupled UI)
+# Composable Onboarding POC - Task Breakdown
 
-## 1) Self-Hosted CopilotKit Runtime
-- Implement Next.js API route at `/api/copilotkit` using `@copilotkit/runtime` + `OpenAIAdapter`.
-- Configure server-only `OPENAI_API_KEY`.
-- Acceptance: UI connects via `runtimeUrl="/api/copilotkit"`; no public cloud keys used.
+**Project**: Composable Onboarding Proof of Concept
+**Architecture**: Two-Level YAML + Schema-Driven Components + Self-Hosted CopilotKit
+**Total Tasks**: 14
+**Total Estimated Time**: 18-20 hours
+**Status**: Ready for Implementation
 
-Example (Next.js App Router):
-```ts
-// app/api/copilotkit/route.ts
-import { NextRequest } from 'next/server';
-import {
-  CopilotRuntime,
-  OpenAIAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from '@copilotkit/runtime';
-import OpenAI from 'openai';
+---
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const serviceAdapter = new OpenAIAdapter({ openai });
-const runtime = new CopilotRuntime();
+## Task 1: Self-Hosted CopilotKit Runtime
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter,
-    endpoint: '/api/copilotkit',
-  });
-  return handleRequest(req);
-};
-```
+**ID**: COMP-001
+**Priority**: High (Critical Path)
+**Estimated Time**: 2 hours
+**Dependencies**: None
 
-## 2) YAML Loader and Interpreter
-- Add YAML files under `data/composable_onboardings/*` with fake fields for corporate and individual flows.
-- Build loader to select applicable composable_onboarding by `client_type` and `jurisdiction`.
-- Implement engine helpers: `missingRequiredFields`, `nextStepId`.
-- Acceptance: `GET /api/composable_onboardings?...` returns compiled machine with `initialStepId`.
+### Description
 
-## 3) Decoupled Actions and UI (Component Registry + Schema-Driven Components)
+Set up Next.js 14+ project with App Router and implement self-hosted CopilotKit runtime endpoint. Configure OpenAI adapter for AI-powered assistance without exposing API keys to the client.
 
-### Goal
-Decouple business logic (actions) from presentation (UI components) AND use schema-driven generic components to maximize reusability.
+This is the foundation task that enables all AI-powered features in the application.
 
-**Key Principle**: Components = Behavior, Schemas = Data
-- Instead of creating `individual-contact-form`, `corporate-contact-form`, `trust-contact-form`...
-- Create ONE `form` component that accepts different schemas from YAML
+### Objectives
 
-### Implementation Steps
-
-**A. Create Component Registry (`src/lib/ui/component-registry.ts`)**
-```typescript
-// Define standard interface all registry components must implement
-interface RegistryComponentProps {
-  data: any;                    // Contains: schema (from YAML) + initialValues (collected data)
-  status: RenderFunctionStatus; // CopilotKit status (executing, complete, etc.)
-  onComplete: (result: any) => void; // Callback when user completes the step
-}
-
-// LEAN registry - only GENERIC components
-// Each component handles multiple use cases via schemas
-const UI_COMPONENT_REGISTRY: Record<string, React.ComponentType<RegistryComponentProps>> = {
-  'form': GenericFormWrapper,              // Handles ALL forms via FieldSchema[]
-  'document-upload': GenericDocumentUploadWrapper,  // Handles ALL uploads via DocumentSchema
-  'data-table': GenericDataTableWrapper,   // Handles ALL tables via TableSchema
-  'review-summary': ReviewSummaryWrapper,  // Shows all collected data
-};
-
-export function getComponent(componentId: string): React.ComponentType<RegistryComponentProps> | null;
-export function getAvailableComponentIds(): string[];
-```
-
-**B. Define Schema Types (`src/lib/types/field-schema.ts`)**
-```typescript
-export type FieldType = 'text' | 'email' | 'tel' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox' | 'radio';
-
-export interface FieldSchema {
-  name: string;              // Field identifier (e.g., "legal_name")
-  label: string;             // Display label (e.g., "Legal Business Name")
-  type: FieldType;           // Input type
-  required?: boolean;        // Validation: is field required?
-  placeholder?: string;      // Placeholder text
-  helpText?: string;         // Additional guidance
-  validation?: {
-    pattern?: string;        // Regex pattern
-    minLength?: number;
-    maxLength?: number;
-    min?: number;            // For number/date
-    max?: number;
-  };
-  options?: Array<{          // For select/radio
-    value: string;
-    label: string;
-  }>;
-  defaultValue?: any;
-  visible?: string;          // Conditional visibility (e.g., "entity_type == 'Corporation'")
-}
-
-export interface FormSchema {
-  fields: FieldSchema[];
-  layout?: 'single-column' | 'two-column' | 'grid';
-  submitLabel?: string;
-  cancelLabel?: string;
-}
-
-export interface DocumentSchema {
-  documents: Array<{
-    id: string;
-    label: string;
-    required: boolean;
-    acceptedTypes: string[];
-    maxSize: number;
-    helpText?: string;
-  }>;
-  allowMultiple?: boolean;
-  uploadLabel?: string;
-}
-```
-
-**C. Create Generic Form Wrapper**
-Schema-driven wrapper that works with ANY form schema:
-```typescript
-// src/components/onboarding/generic-form-wrapper.tsx
-import { GenericForm } from '@/components/ui/generic-form';
-import { RegistryComponentProps } from '@/lib/ui/component-registry';
-
-export function GenericFormWrapper({ data, status, onComplete }: RegistryComponentProps) {
-  // Extract schema from YAML (passed via data)
-  const schema = data.schema || { fields: [], layout: 'single-column' };
-  const initialValues = data.initialValues || {};
-
-  return (
-    <GenericForm
-      schema={schema}
-      initialData={initialValues}
-      isLoading={status === 'executing'}
-      onSubmit={(formData) => {
-        onComplete({ action: 'submit', data: formData });
-      }}
-      onCancel={() => {
-        onComplete({ action: 'cancel', data: {} });
-      }}
-    />
-  );
-}
-```
-
-**D. Create Generic `renderUI` Action**
-Replace individual stage actions with ONE generic action that passes schemas:
-```typescript
-import { useCopilotAction } from '@copilotkit/react-core';
-import { getComponent, getAvailableComponentIds } from '@/lib/ui/component-registry';
-
-useCopilotAction({
-  name: "renderUI",
-  description: "Render a schema-driven UI component to collect or display information",
-  parameters: [
-    {
-      name: "componentId",
-      type: "string",
-      enum: getAvailableComponentIds(),
-      description: "The generic component to render (form, document-upload, data-table, review-summary)",
-      required: false  // Falls back to currentStep.component_id
-    },
-    {
-      name: "data",
-      type: "object",
-      description: "Initial data to populate the component",
-      required: false
-    }
-  ],
-  renderAndWaitForResponse: ({ args, status, respond }) => {
-    // Determine which component to render
-    const componentId = args.componentId || currentStep?.component_id;
-    const Component = getComponent(componentId);
-
-    if (!Component) {
-      respond?.(`Error: Unknown component ${componentId}`);
-      return <ErrorView message={`Component not found: ${componentId}`} />;
-    }
-
-    // Prepare data with schema from YAML + initial values
-    const componentData = {
-      schema: currentStep?.schema,           // Schema from YAML workflow definition
-      initialValues: {
-        ...collectedInputs,                  // Pre-populate with existing data
-        ...(args.data || {})
-      }
-    };
-
-    return (
-      <Component
-        data={componentData}
-        status={status}
-        onComplete={(result) => {
-          if (result.action === 'submit') {
-            updateInputs(result.data);
-          }
-
-          const progression = progressToNextStep();
-
-          respond?.(JSON.stringify({
-            success: progression.canProgress,
-            action: result.action,
-            data: result.data,
-            nextStepId: progression.nextStepId,
-            missingFields: progression.missingFields
-          }));
-        }}
-      />
-    );
-  }
-});
-```
-
-**E. Update YAML to Specify Components AND Schemas**
-Extend YAML schema to include `component_id` AND `schema`:
-```yaml
-steps:
-  # Individual contact info
-  - id: getIndividualContact
-    task_ref: collect_contact_info
-    component_id: form                    # Generic form component
-    schema:                                # Schema defines fields dynamically
-      fields:
-        - name: full_name
-          label: "Full Name"
-          type: text
-          required: true
-        - name: email
-          label: "Email Address"
-          type: email
-          required: true
-          validation:
-            pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-        - name: phone
-          label: "Phone Number"
-          type: tel
-          required: true
-      layout: single-column
-    required_fields: ["full_name", "email", "phone"]
-    next:
-      default: collectDocuments
-
-  # Corporate contact info (SAME component, different schema!)
-  - id: getCorporateContact
-    task_ref: collect_contact_info
-    component_id: form                    # SAME component!
-    schema:                                # Different schema
-      fields:
-        - name: legal_name
-          label: "Legal Business Name"
-          type: text
-          required: true
-        - name: entity_type
-          label: "Entity Type"
-          type: select
-          required: true
-          options:
-            - { value: corporation, label: "Corporation" }
-            - { value: llc, label: "LLC" }
-            - { value: partnership, label: "Partnership" }
-        - name: jurisdiction
-          label: "Jurisdiction"
-          type: select
-          required: true
-          options:
-            - { value: US, label: "United States" }
-            - { value: CA, label: "Canada" }
-        - name: business_email
-          label: "Business Email"
-          type: email
-          required: true
-        - name: business_phone
-          label: "Business Phone"
-          type: tel
-          required: true
-      layout: two-column
-    required_fields: ["legal_name", "entity_type", "business_email", "business_phone"]
-    next:
-      default: collectDocuments
-```
+- Initialize Next.js project with TypeScript and Tailwind CSS
+- Install CopilotKit dependencies (@copilotkit/react-core, @copilotkit/runtime)
+- Create API route for self-hosted runtime
+- Configure environment variables securely
+- Test AI response streaming
 
 ### Acceptance Criteria
-- ✅ Registry exists with 3-5 **GENERIC** component mappings (form, document-upload, data-table, review-summary)
-- ✅ Schema types defined (FieldSchema, FormSchema, DocumentSchema)
-- ✅ `renderUI` action successfully renders components by ID and passes schemas
+
+- ✅ Next.js project initialized with App Router
+- ✅ `/api/copilotkit` endpoint responds to POST requests
+- ✅ OpenAI adapter configured with `OPENAI_API_KEY` from environment
+- ✅ Streaming responses work correctly
+- ✅ API key NOT exposed to client-side code
+- ✅ `.env.example` file created with required variables
+- ✅ Endpoint tested manually with valid API key
+- ✅ Error handling for missing/invalid API key
+
+### Files to Create
+
+- `app/api/copilotkit/route.ts` - Runtime endpoint
+- `.env.local` - Local environment variables (git-ignored)
+- `.env.example` - Environment variable template
+- `package.json` - Updated with dependencies
+
+### Files to Modify
+
+- `.gitignore` - Ensure `.env.local` is ignored
+
+### Testing Requirements
+
+- **Manual Test**: Send POST request to `/api/copilotkit`, verify response
+- **Environment Test**: Confirm API key not accessible from client
+- **Error Test**: Test behavior with missing API key
+
+### Technical Notes
+
+- Use `copilotRuntimeNextJSAppRouterEndpoint` for App Router compatibility
+- Set request timeout to 120 seconds for long-running operations
+- Use `maxDuration` export for Vercel deployment compatibility
+
+### References
+
+- implement_plan.md: Section 3, Task 1
+- Context7: CopilotKit runtime setup (/copilotkit/copilotkit)
+- Context7: Next.js API routes (/vercel/next.js)
+
+---
+
+## Task 2: Two-Stage YAML Workflow Loader
+
+**ID**: COMP-002
+**Priority**: High (Critical Path)
+**Estimated Time**: 2 hours
+**Dependencies**: None
+
+### Description
+
+Implement two-stage YAML loading system that separates workflow orchestration from field schema definitions (ground truth). This enables task reusability across workflows and supports task inheritance.
+
+**Key Innovation**: Two-level architecture where workflows reference tasks, and tasks contain schemas.
+
+### Objectives
+
+- Define TypeScript schemas for workflows and tasks
+- Implement workflow file loader
+- Implement task file loader with inheritance resolution
+- Create workflow selection logic by client_type/jurisdiction
+- Add validation for task references and circular inheritance
+
+### Acceptance Criteria
+
+- ✅ Workflow files loaded from `data/workflows/*.yaml`
+- ✅ Task files loaded from `data/tasks/**/*.yaml`
+- ✅ Task inheritance resolved correctly (extends base tasks)
+- ✅ Circular inheritance detected and prevented
+- ✅ `task_ref` validation ensures all references exist
+- ✅ `required_fields` validation against task's `expected_output_fields`
+- ✅ Workflow selection works by `client_type` and `jurisdiction`
+- ✅ Compiled workflow includes resolved schemas from tasks
+- ✅ GET `/api/workflows?client_type=...&jurisdiction=...` returns compiled workflow
+
+### Files to Create
+
+- `lib/workflow/schema.ts` - TypeScript type definitions
+- `lib/workflow/loader.ts` - YAML loading functions
+- `app/api/workflows/route.ts` - API endpoint
+- `data/workflows/corporate_onboarding_v1.yaml` - Example workflow
+- `data/workflows/individual_onboarding_v1.yaml` - Example workflow
+- `data/tasks/_base/contact_info_base.yaml` - Base task
+- `data/tasks/contact_info/corporate.yaml` - Corporate task
+- `data/tasks/contact_info/individual.yaml` - Individual task
+
+### Testing Requirements
+
+- **Unit Tests**:
+  - Test task inheritance resolution
+  - Test circular inheritance detection
+  - Test validation of task references
+- **Integration Test**: Load complete workflow with tasks
+- **API Test**: Test `/api/workflows` endpoint
+
+### Technical Notes
+
+- Use `yaml` npm package for parsing
+- Implement recursive inheritance resolution
+- Cache loaded workflows for performance
+- Validate that task's `component_id` exists in registry
+
+### References
+
+- implement_plan.md: Section 3, Task 2
+- strategy.md: Two-Level YAML Architecture
+- implement_plan.md: Section 2.2 (Two-Level YAML Architecture)
+
+---
+
+## Task 3: Component Registry
+
+**ID**: COMP-003
+**Priority**: High (Critical Path)
+**Estimated Time**: 2 hours
+**Dependencies**: None
+
+### Description
+
+Create component registry pattern that decouples CopilotKit actions from UI components. Registry maps `component_id` → React component, enabling YAML to control which UI renders.
+
+**Key Principle**: Keep registry lean (3-5 generic components) by using schema-driven components.
+
+### Objectives
+
+- Define `RegistryComponentProps` interface
+- Create component registry with lookup functions
+- Implement generic `renderUI` CopilotKit action
+- Add error handling for unknown components
+
+### Acceptance Criteria
+
+- ✅ `RegistryComponentProps` interface defined with `data`, `status`, `onComplete`
+- ✅ Registry contains 3-5 generic component mappings
+- ✅ `getComponent(componentId)` returns component or null
+- ✅ `getAvailableComponentIds()` returns array of valid IDs
+- ✅ `renderUI` action successfully renders components by ID
+- ✅ Action passes schema from workflow to component via `data.schema`
 - ✅ No action directly imports UI components (all via registry)
-- ✅ YAML specifies **BOTH** `component_id` AND `schema` for each step
-- ✅ Same component (e.g., "form") works with different schemas (individual vs. corporate)
-- ✅ Unit tests verify registry lookup, schema passing, and error handling
+- ✅ Error component shown for unknown `component_id`
+- ✅ Unit tests verify registry lookup and error handling
 
-### Benefits Achieved
-- **70% code reduction**: 3-5 generic components instead of 50+ specific ones
-- **Business user control**: Add entity types by editing YAML schemas (5 minutes, not 2-4 hours)
-- **Consistency**: Same validation, styling, behavior across all form variations
-- **Rapid iteration**: Change field labels, add/remove fields without code deployment
+### Files to Create
 
-## 4) Drive Transitions from YAML
+- `lib/ui/component-registry.ts` - Registry and lookup functions
+- `components/onboarding/error-component.tsx` - Error fallback UI
 
-### Goal
-Replace hardcoded stage transitions with YAML-driven composable_onboarding engine that validates required fields and computes next steps dynamically.
+### Testing Requirements
 
-### Implementation Steps
+- **Unit Tests**:
+  - Test `getComponent()` with valid/invalid IDs
+  - Test `getAvailableComponentIds()`
+  - Test error handling for missing components
+- **Integration Test**: Verify `renderUI` action integration
 
-**A. Fetch Composable Onboarding on App Load**
-```typescript
-// In main component or global state provider
-useEffect(() => {
-  async function loadComposableOnboarding() {
-    const params = new URLSearchParams({
-      client_type: 'corporate', // or from user profile
-      jurisdiction: 'US'
-    });
-    const res = await fetch(`/api/composable_onboardings?${params}`);
-    const machine: RuntimeMachine = await res.json();
+### Technical Notes
 
-    setComposableOnboardingMachine(machine);
-    setCurrentStepId(machine.initialStepId);
-  }
-  loadComposableOnboarding();
-}, []);
-```
+- Use `React.ComponentType<RegistryComponentProps>` for type safety
+- Registry is a static object (no runtime modification)
+- Components must implement standard interface for consistency
 
-**B. Create Composable Onboarding State Management Hook**
-```typescript
-// src/lib/composable_onboarding/use-composable_onboarding-state.ts
-export function useComposableOnboardingState() {
-  const [machine, setMachine] = useState<RuntimeMachine | null>(null);
-  const [currentStepId, setCurrentStepId] = useState<string>('');
-  const [collectedInputs, setCollectedInputs] = useState<Record<string, any>>({});
+### References
 
-  // Get current step definition
-  const currentStep = machine?.steps.find(s => s.id === currentStepId);
+- implement_plan.md: Section 3, Task 3
+- strategy.md: Component Registry Strategy
+- implement_plan.md: Section 2.1 (Schema-Driven Components)
 
-  // Check if current step can progress
-  const canProgress = () => {
-    if (!currentStep) return false;
-    const missing = missingRequiredFields(currentStep, collectedInputs);
-    return missing.length === 0;
-  };
+---
 
-  // Transition to next step
-  const progressToNextStep = () => {
-    if (!currentStep || !canProgress()) {
-      return { success: false, reason: 'Missing required fields' };
-    }
+## Task 4A: Runtime Machine Compilation
 
-    const nextId = nextStepId(currentStep, collectedInputs);
-    setCurrentStepId(nextId);
-    return { success: true, nextStepId: nextId };
-  };
+**ID**: COMP-004A
+**Priority**: High (Critical Path)
+**Estimated Time**: 1.5 hours
+**Dependencies**: Task 2 (YAML Loader)
 
-  // Update collected inputs
-  const updateInputs = (newData: Record<string, any>) => {
-    setCollectedInputs(prev => ({ ...prev, ...newData }));
-  };
+### Description
 
-  return {
-    machine,
-    currentStep,
-    currentStepId,
-    collectedInputs,
-    canProgress,
-    progressToNextStep,
-    updateInputs,
-    missingFields: currentStep ? missingRequiredFields(currentStep, collectedInputs) : []
-  };
-}
-```
+Implement runtime machine compilation that transforms loaded workflow definitions into optimized runtime state machines. Creates step index for fast lookups and validates workflow structure.
 
-**C. Wire Actions to Use Composable Onboarding Engine**
-```typescript
-// In component that registers useCopilotAction
-import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
-const { currentStep, updateInputs, progressToNextStep, missingFields } = useComposableOnboardingState();
+### Objectives
 
-// Add context for AI to understand current step requirements
-useCopilotReadable({
-  description: "Current onboarding step and requirements",
-  value: {
-    stepId: currentStep?.id,
-    taskRef: currentStep?.task_ref,
-    requiredFields: currentStep?.required_fields,
-    missingFields: missingFields,
-    componentId: currentStep?.component_id
-  }
-});
-
-// Render UI based on current step's component_id
-useCopilotAction({
-  name: "renderUI",
-  renderAndWaitForResponse: ({ args, status, respond }) => {
-    // Get component from current step definition
-    const componentId = currentStep?.component_id || args.componentId;
-    const Component = getComponent(componentId);
-
-    return (
-      <Component
-        data={args.data}
-        status={status}
-        onComplete={(result) => {
-          // Update collected inputs
-          updateInputs(result.data);
-
-          // Try to progress
-          const progression = progressToNextStep();
-          if (progression.success) {
-            respond?.(`Progressed to step: ${progression.nextStepId}`);
-          } else {
-            respond?.(`Cannot progress: ${progression.reason}. Missing: ${missingFields.join(', ')}`);
-          }
-        }}
-      />
-    );
-  }
-});
-```
-
-**D. Add Transition Action for AI Control**
-```typescript
-// Allow AI to explicitly trigger transitions
-useCopilotAction({
-  name: "transitionToNextStep",
-  description: "Attempt to move to the next step in the composable_onboarding. Only call after all required fields are collected.",
-  available: canProgress() ? "enabled" : "disabled",
-  handler: () => {
-    const result = progressToNextStep();
-    if (result.success) {
-      return `Successfully moved to step: ${result.nextStepId}`;
-    } else {
-      return `Cannot transition: ${result.reason}. Still need: ${missingFields.join(', ')}`;
-    }
-  }
-});
-```
-
-**E. Extend YAML Schema with Component ID**
-Update `src/server/composable_onboarding/schema.ts`:
-```typescript
-export interface Composable OnboardingStep {
-  id: string;
-  task_ref: string;
-  component_id?: string;  // NEW: UI component to render
-  required_fields?: string[];
-  next: {
-    conditions?: Composable OnboardingStepNextCondition[];
-    default: string;
-  };
-}
-```
-
-**F. Update Example YAML Files**
-```yaml
-# data/composable_onboardings/corporate_v1.yaml
-steps:
-  - id: collectContactInfo
-    task_ref: collect_contact_info
-    component_id: contact-form
-    required_fields: ["legal_name", "contact_email", "contact_phone"]
-    next:
-      default: collectDocuments
-
-  - id: collectDocuments
-    task_ref: collect_business_documents
-    component_id: document-upload
-    required_fields: [
-      "business_registration_certificate",
-      "tax_identification_number",
-      "proof_of_address"
-    ]
-    next:
-      conditions:
-        - when: "risk_score > 70"
-          then: enhancedDueDiligence
-      default: review
-```
+- Define `RuntimeMachine` interface
+- Implement `compileRuntimeMachine()` function
+- Build step index (Map) for O(1) step lookups
+- Validate transitions reference valid steps
+- Identify orphaned steps
 
 ### Acceptance Criteria
-- ✅ Composable Onboarding machine fetched from `/api/composable_onboardings` on load
-- ✅ UI initializes to `initialStepId` from YAML
-- ✅ Transitions use `nextStepId()` engine helper
-- ✅ Required fields validated via `missingRequiredFields()`
-- ✅ Blocked transitions show clear error messages
-- ✅ Conditional transitions work (e.g., `risk_score > 70`)
-- ✅ Unit tests for composable_onboarding state management hook
-- ✅ Integration test: complete composable_onboarding end-to-end
 
-## 5) UI Implementation - Three-Pane Layout
+- ✅ `RuntimeMachine` interface includes `workflowId`, `version`, `initialStepId`, `steps`, `stepIndexById`
+- ✅ `compileRuntimeMachine()` creates step index Map
+- ✅ All task references resolved and schemas merged
+- ✅ Transitions validated (all `next` references exist or are "END")
+- ✅ Orphaned steps detected and reported
+- ✅ Initial step set correctly
+- ✅ Unit tests for compilation edge cases
 
-### Goal
-Implement the three-pane onboarding interface based on the approved mockup with improved color scheme and professional design.
+### Files to Create
 
-### Reference
-- **Mockup**: `/home/zineng/workspace/explore_copilotkit/onboarding-mockup-with-form.excalidraw`
-- **Design System**: `task_composable_onboarding/plan/design-system.md`
+- `lib/workflow/engine.ts` - Engine functions (start here)
 
-### Implementation Steps
+### Testing Requirements
 
-**A. Set Up Design System**
-1. Install Tailwind CSS and configure with custom color tokens
-2. Choose color scheme (Recommended: Professional Financial palette)
-3. Configure typography and spacing system
-4. Set up design tokens in CSS custom properties
+- **Unit Tests**:
+  - Test valid workflow compilation
+  - Test detection of invalid transitions
+  - Test orphaned step detection
+  - Test step index correctness
 
-```bash
-npm install -D tailwindcss postcss autoprefixer
-npx tailwindcss init -p
-```
+### Technical Notes
 
-**B. Create Layout Components**
+- Use `Map<string, CompiledWorkflowStep>` for fast lookups
+- Validate during compilation, not at runtime
+- Include all resolved task data in compiled steps
 
-```typescript
-// src/components/layout/three-pane-layout.tsx
-export function ThreePaneLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Will contain: LeftPane, MiddlePane, RightPane */}
-      {children}
-    </div>
-  );
-}
+### References
 
-// src/components/layout/left-pane.tsx - Clients List
-export function LeftPane() {
-  return (
-    <aside className="w-[316px] bg-gray-50 border-r border-gray-200 flex flex-col">
-      {/* Search box */}
-      {/* Corporate folder */}
-      {/* Individual folder */}
-    </aside>
-  );
-}
+- implement_plan.md: Section 3, Task 4
+- implement_plan.md: Section 2.2.5 (Workflow Compilation Process)
 
-// src/components/layout/middle-pane.tsx - Presentation
-export function MiddlePane({ client }: { client: ClientProfile }) {
-  return (
-    <main className="flex-1 bg-white overflow-y-auto p-6">
-      {/* Client header */}
-      {/* Profile section */}
-      {/* Required fields section */}
-      {/* Timeline section */}
-    </main>
-  );
-}
+---
 
-// src/components/layout/right-pane.tsx - Form + Chat
-export function RightPane() {
-  return (
-    <aside className="w-[476px] bg-gray-50 border-l border-gray-200 flex flex-col">
-      {/* Form section (top) */}
-      {/* Chat section (bottom) */}
-    </aside>
-  );
-}
-```
+## Task 4B: Expression Evaluation Engine
 
-**C. Build Presentation Components (MiddlePane)**
+**ID**: COMP-004B
+**Priority**: High (Critical Path)
+**Estimated Time**: 1 hour
+**Dependencies**: None
 
-```typescript
-// src/components/onboarding/profile-section.tsx
-export function ProfileSection({ profile }: { profile: ClientProfile }) {
-  return (
-    <div className="bg-gray-50 border border-gray-200 rounded-md p-5 mb-5">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile</h3>
-      <ul className="space-y-2 text-sm text-gray-700">
-        <li>• Email: {profile.email}</li>
-        <li>• Risk: {profile.risk}</li>
-        <li>• Entity Type: {profile.entityType}</li>
-        <li>• Jurisdiction: {profile.jurisdiction}</li>
-      </ul>
-    </div>
-  );
-}
+### Description
 
-// src/components/onboarding/required-fields-section.tsx
-export function RequiredFieldsSection({ fields }: { fields: RequiredField[] }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-md p-5 mb-5">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Required Fields</h3>
-      <div className="space-y-2">
-        {fields.map(field => (
-          <FieldStatus
-            key={field.id}
-            name={field.name}
-            status={field.status}
-            value={field.value}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
+Implement expression evaluation engine for conditional workflow transitions. Supports operators: `>`, `>=`, `<`, `<=`, `==`, `!=`, `in`.
 
-// src/components/onboarding/field-status.tsx
-export function FieldStatus({ name, status, value }: FieldStatusProps) {
-  const bgColor = status === 'completed' ? 'bg-green-50 border-green-300' : 'bg-yellow-50 border-yellow-300';
-  const textColor = status === 'completed' ? 'text-green-900' : 'text-yellow-900';
-  const icon = status === 'completed' ? '☑' : '☐';
+**Example**: `"risk_score > 70"` → evaluates to boolean based on collected inputs.
 
-  return (
-    <div className={`flex items-center gap-2 px-3 py-2 border rounded ${bgColor}`}>
-      <span className={textColor}>{icon}</span>
-      <span className={`text-sm ${textColor}`}>
-        {name} {value && `(${value})`} {status === 'pending' && '(pending)'}
-      </span>
-    </div>
-  );
-}
+### Objectives
 
-// src/components/onboarding/timeline-section.tsx
-export function TimelineSection({ events }: { events: TimelineEvent[] }) {
-  return (
-    <div className="bg-gray-50 border border-gray-200 rounded-md p-5">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Timeline</h3>
-      <ul className="space-y-2 text-sm text-gray-700">
-        {events.map(event => (
-          <li key={event.id}>• {event.timestamp} - {event.description}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-```
-
-**D. Build Form Components (RightPane Top)**
-
-```typescript
-// src/components/onboarding/business-info-form.tsx
-export function BusinessInfoForm({ onSubmit }: BusinessInfoFormProps) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-md p-5">
-      <h3 className="text-base font-semibold text-gray-900 mb-4">
-        Business Information Form
-      </h3>
-
-      <form onSubmit={onSubmit} className="space-y-4">
-        <FormField
-          label="Business Registration Number"
-          required
-          placeholder="Enter registration number..."
-        />
-
-        <FormField
-          label="Tax ID"
-          required
-          placeholder="Enter tax ID..."
-        />
-
-        <FormField
-          label="Business Address"
-          required
-          type="textarea"
-          placeholder="Street address&#10;City, State, ZIP&#10;Country"
-        />
-
-        <div className="flex gap-3 pt-2">
-          <button
-            type="button"
-            className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium
-                       rounded-md border border-gray-400 hover:bg-gray-200"
-          >
-            Save Draft
-          </button>
-          <button
-            type="submit"
-            className="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium
-                       rounded-md hover:bg-blue-700"
-          >
-            Submit
-          </button>
-        </div>
-      </form>
-
-      <p className="text-xs text-gray-600 mt-3">* Required fields</p>
-    </div>
-  );
-}
-
-// src/components/ui/form-field.tsx
-export function FormField({ label, required, type = 'text', placeholder }: FormFieldProps) {
-  const InputComponent = type === 'textarea' ? 'textarea' : 'input';
-
-  return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-medium text-gray-900">
-        {label} {required && '*'}
-      </label>
-      <InputComponent
-        type={type === 'textarea' ? undefined : type}
-        rows={type === 'textarea' ? 4 : undefined}
-        placeholder={placeholder}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs
-                   placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-    </div>
-  );
-}
-```
-
-**E. Build Chat Components (RightPane Bottom)**
-
-```typescript
-// src/components/chat/chat-panel.tsx
-export function ChatPanel({ messages, onSendMessage }: ChatPanelProps) {
-  return (
-    <div className="flex-1 bg-gray-50 border-t border-gray-200 flex flex-col p-5">
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">Chat Messages</h3>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-3 mb-4">
-        {messages.map(msg => (
-          <ChatMessage key={msg.id} message={msg} />
-        ))}
-      </div>
-
-      {/* Input */}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          placeholder="Type a message..."
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-xs
-                     placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <button className="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700">
-          Send
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// src/components/chat/chat-message.tsx
-export function ChatMessage({ message }: { message: Message }) {
-  const isAI = message.sender === 'ai';
-  const bgClass = isAI ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-300';
-  const textClass = isAI ? 'text-blue-900' : 'text-gray-900';
-
-  return (
-    <div className={`px-3 py-2 border rounded-md ${bgClass}`}>
-      <p className={`text-xs whitespace-pre-wrap ${textClass}`}>
-        {isAI ? 'AI: ' : 'User: '}{message.text}
-      </p>
-    </div>
-  );
-}
-```
+- Implement `evaluateExpression()` function
+- Support all required operators
+- Handle type coercion (string/number/boolean)
+- Add error handling for malformed expressions
 
 ### Acceptance Criteria
-- ✅ Three-pane layout matches mockup structure
-- ✅ Responsive design (collapsible on <1024px)
+
+- ✅ Supports comparison operators: `>`, `>=`, `<`, `<=`
+- ✅ Supports equality operators: `==`, `!=`
+- ✅ Supports `in` operator for array membership
+- ✅ Handles string comparisons correctly
+- ✅ Handles number comparisons correctly
+- ✅ Returns `false` for malformed expressions (safe default)
+- ✅ Unit tests cover all operators
+- ✅ Unit tests cover type coercion cases
+
+### Files to Modify
+
+- `lib/workflow/engine.ts` - Add evaluation function
+
+### Testing Requirements
+
+- **Unit Tests**:
+  - Test each operator with various data types
+  - Test malformed expressions return false
+  - Test undefined variables return false
+  - Test array membership with `in`
+
+### Technical Notes
+
+- Simple expression parser (no complex AST needed)
+- Split expression: `leftVar operator rightValue`
+- Type coercion: convert strings to numbers for numeric comparison
+- Whitespace handling: trim all parts
+
+### References
+
+- implement_plan.md: Section 3, Task 4
+- strategy.md: Workflow interpreter expressions
+
+---
+
+## Task 4C: State Transition Logic
+
+**ID**: COMP-004C
+**Priority**: High (Critical Path)
+**Estimated Time**: 1 hour
+**Dependencies**: Task 4A (Machine Compilation), Task 4B (Expression Evaluation)
+
+### Description
+
+Implement state transition logic that determines next workflow step based on conditions and collected inputs. Validates required fields before allowing transitions.
+
+### Objectives
+
+- Implement `nextStepId()` function
+- Implement `missingRequiredFields()` function
+- Handle conditional transitions
+- Handle default transitions
+- Support END state
+
+### Acceptance Criteria
+
+- ✅ `nextStepId()` evaluates conditions in order
+- ✅ Returns first matching condition's `then` step
+- ✅ Returns `default` step if no conditions match
+- ✅ Returns `null` for END state
+- ✅ `missingRequiredFields()` returns array of missing field names
+- ✅ Validates against task's `required_fields` (ground truth)
+- ✅ Unit tests for conditional branching
+- ✅ Unit tests for required field validation
+
+### Files to Modify
+
+- `lib/workflow/engine.ts` - Add transition functions
+
+### Testing Requirements
+
+- **Unit Tests**:
+  - Test conditional evaluation order
+  - Test default fallback
+  - Test END state handling
+  - Test required field detection
+  - Test empty vs undefined field values
+
+### Technical Notes
+
+- Evaluate conditions sequentially (first match wins)
+- Use task's `required_fields` as ground truth
+- Handle missing/undefined inputs gracefully
+
+### References
+
+- implement_plan.md: Section 3, Task 4
+- Two-level YAML: required_fields at task level
+
+---
+
+## Task 4D: Workflow State Hook
+
+**ID**: COMP-004D
+**Priority**: High
+**Estimated Time**: 30 minutes
+**Dependencies**: Task 4A, 4B, 4C (All engine functions)
+
+### Description
+
+Create custom React hook (`useWorkflowState`) that manages workflow state, current step, collected inputs, and progression logic. Provides simple API for components to interact with workflow engine.
+
+### Objectives
+
+- Implement `useWorkflowState` hook
+- Manage current step state
+- Manage collected inputs state
+- Provide progression functions
+- Expose validation status
+
+### Acceptance Criteria
+
+- ✅ Hook returns `currentStep`, `collectedInputs`, `machine`
+- ✅ `canProgress()` checks required fields
+- ✅ `progressToNextStep()` validates and transitions
+- ✅ `updateInputs()` merges new data
+- ✅ `missingFields` array exposed
+- ✅ `isComplete` boolean when step is null (END)
+- ✅ Hook uses engine functions from Task 4A-4C
+- ✅ Unit tests for hook behavior
+
+### Files to Create
+
+- `lib/workflow/hooks.ts` - Custom hook
+
+### Testing Requirements
+
+- **Unit Tests** (using React Testing Library):
+  - Test state initialization
+  - Test input updates
+  - Test progression logic
+  - Test validation blocking
+
+### Technical Notes
+
+- Use `useState` for state management
+- Keep hook logic simple (delegate to engine functions)
+- Expose minimal API surface
+
+### References
+
+- implement_plan.md: Section 3, Task 4
+- Context7: React hooks (/websites/react_dev)
+
+---
+
+## Task 5A: Field Schema Type Definitions
+
+**ID**: COMP-005A
+**Priority**: High
+**Estimated Time**: 30 minutes
+**Dependencies**: None
+
+### Description
+
+Define TypeScript types for schema-driven components: `FieldSchema`, `FormSchema`, `DocumentSchema`. These types enable YAML to define UI component configuration without code changes.
+
+**Key Principle**: Schemas = Data, Components = Behavior
+
+### Objectives
+
+- Define `FieldType` union type
+- Define `FieldSchema` interface
+- Define `FormSchema` interface
+- Define `DocumentSchema` interface
+- Add comprehensive JSDoc comments
+
+### Acceptance Criteria
+
+- ✅ `FieldType` supports: text, email, tel, number, date, textarea, select, checkbox, radio
+- ✅ `FieldSchema` includes: name, label, type, required, validation, options, visible
+- ✅ `FormSchema` includes: fields[], layout, submitLabel, cancelLabel
+- ✅ `DocumentSchema` includes: documents[], allowMultiple, uploadLabel
+- ✅ All properties properly typed (string, boolean, number, arrays, objects)
+- ✅ Optional properties marked with `?`
+- ✅ JSDoc comments explain each property
+- ✅ Types exported for use across project
+
+### Files to Create
+
+- `lib/types/field-schema.ts` - All schema type definitions
+
+### Testing Requirements
+
+- **Type Tests**: Ensure TypeScript compilation passes
+- **Usage Test**: Import and use types in test file
+
+### Technical Notes
+
+- Keep types simple and extensible
+- Support conditional visibility via `visible` expression string
+- Validation rules should be type-specific (pattern for text, min/max for number)
+
+### References
+
+- implement_plan.md: Section 2.1.5 (Schema Types)
+- strategy.md: Schema-Driven Components
+
+---
+
+## Task 5B: Generic Form Component
+
+**ID**: COMP-005B
+**Priority**: High (Critical Path)
+**Estimated Time**: 2 hours
+**Dependencies**: Task 5A (Schema Types)
+
+### Description
+
+Build generic form component that renders ANY form based on `FormSchema`. This single component replaces 50+ specific form components through schema-driven rendering.
+
+**Key Innovation**: One component serves unlimited form variations via schemas.
+
+### Objectives
+
+- Implement `GenericForm` component (~300 lines)
+- Dynamic field rendering based on schema
+- Validation logic (required, pattern, length, range)
+- Conditional field visibility
+- Layout support (single/two-column, grid)
+- Error display with field-level messages
+- Initial data population
+- Loading states
+
+### Acceptance Criteria
+
+- ✅ Renders all field types from schema
+- ✅ Validates required fields on submit
+- ✅ Validates patterns (regex) for text fields
+- ✅ Validates min/max for number fields
+- ✅ Validates minLength/maxLength for text
+- ✅ Conditional visibility works (evaluates `visible` expressions)
+- ✅ Layout options work (single/two-column/grid)
+- ✅ Displays field-level error messages
+- ✅ Pre-populates with `initialData`
+- ✅ Shows loading state during submission
+- ✅ Calls `onSubmit` with form data
+- ✅ Calls `onCancel` if provided
+- ✅ Unit tests for validation logic
+- ✅ Integration test with mock schema
+
+### Files to Create
+
+- `components/ui/generic-form.tsx` - Main form component
+
+### Testing Requirements
+
+- **Unit Tests**:
+  - Test field visibility evaluation
+  - Test validation for each field type
+  - Test form submission
+  - Test error display
+- **Integration Test**: Render form with complex schema
+
+### Technical Notes
+
+- Use `useState` for form data and errors
+- Implement `isFieldVisible()` function for conditional rendering
+- Implement `validateField()` function for field-level validation
+- Use `handleChange()` to clear errors on input
+- Use `handleSubmit()` to validate all fields before submit
+
+### References
+
+- implement_plan.md: Section 2.1.6 (Generic Form Implementation)
+- Context7: React forms and state (/websites/react_dev)
+
+---
+
+## Task 5C: FormField Renderer Component
+
+**ID**: COMP-005C
+**Priority**: High
+**Estimated Time**: 1 hour
+**Dependencies**: Task 5A (Schema Types)
+
+### Description
+
+Build `FormField` component that renders individual form fields based on `FieldSchema.type`. Handles all input types with consistent styling and error display.
+
+### Objectives
+
+- Implement `FormField` component
+- Support all field types from `FieldType`
+- Consistent styling across field types
+- Error and help text display
+- Accessibility (labels, ARIA attributes)
+
+### Acceptance Criteria
+
+- ✅ Renders text, email, tel, number, date inputs
+- ✅ Renders textarea with configurable rows
+- ✅ Renders select dropdown with options
+- ✅ Renders checkbox with label
+- ✅ Renders radio group with options
+- ✅ Shows label with required indicator (`*`)
+- ✅ Shows help text if provided
+- ✅ Shows error message with red styling
+- ✅ Focus states styled correctly
+- ✅ Disabled state works
+- ✅ Unit tests for each field type
+
+### Files to Create
+
+- `components/ui/form-field.tsx` - Field renderer
+
+### Testing Requirements
+
+- **Unit Tests**: Render each field type and verify output
+- **Accessibility Test**: Check labels and ARIA attributes
+
+### Technical Notes
+
+- Use Tailwind CSS for styling
+- Consistent focus ring: `focus:ring-2 focus:ring-blue-500`
+- Error border: `border-red-500`
+- Disabled styles: `disabled:bg-gray-100 disabled:cursor-not-allowed`
+
+### References
+
+- implement_plan.md: Section 2.1.6 (FormField component)
+- design-system.md: Form styling guidelines
+
+---
+
+## Task 5D: Three-Pane Layout Components
+
+**ID**: COMP-005D
+**Priority**: Medium
+**Estimated Time**: 1.5 hours
+**Dependencies**: None
+
+### Description
+
+Implement three-pane layout based on approved mockup: LeftPane (clients), MiddlePane (presentation), RightPane (form + chat). Provides professional, context-rich interface for onboarding.
+
+### Objectives
+
+- Create layout wrapper component
+- Build LeftPane with client list
+- Build MiddlePane with profile, required fields, timeline sections
+- Build RightPane container for form and chat
+- Apply design system (colors, typography, spacing)
+- Ensure responsive behavior
+
+### Acceptance Criteria
+
+- ✅ `ThreePaneLayout` wrapper created with flex layout
+- ✅ LeftPane: 316px width, client list with folders
+- ✅ MiddlePane: Flex-1, profile/required fields/timeline sections
+- ✅ RightPane: 476px width, container for form + chat
+- ✅ ProfileSection displays client data
+- ✅ RequiredFieldsSection shows field status (completed/pending)
+- ✅ TimelineSection displays events
 - ✅ Professional Financial color scheme applied
-- ✅ All text readable with proper contrast (WCAG AA)
-- ✅ Form inputs have proper focus states
-- ✅ Status indicators use color + icons (accessible)
-- ✅ Chat messages styled correctly (AI vs User)
-- ✅ Buttons have hover/active states
-- ✅ Design system documented and reusable
+- ✅ Responsive: panes collapsible on < 1024px
+- ✅ Matches mockup structure and spacing
+
+### Files to Create
+
+- `components/layout/three-pane-layout.tsx` - Layout wrapper
+- `components/layout/left-pane.tsx` - Clients list
+- `components/layout/middle-pane.tsx` - Presentation pane
+- `components/layout/right-pane.tsx` - Form + chat container
+- `components/onboarding/profile-section.tsx` - Profile display
+- `components/onboarding/required-fields-section.tsx` - Field status
+- `components/onboarding/field-status.tsx` - Individual field status
+- `components/onboarding/timeline-section.tsx` - Timeline display
+
+### Testing Requirements
+
+- **Visual Test**: Compare with mockup
+- **Responsive Test**: Test on mobile/tablet/desktop viewports
+- **Unit Tests**: Component rendering
+
+### Technical Notes
+
+- Use Tailwind classes: `flex`, `h-screen`, `border-r`, `overflow-y-auto`
+- Color scheme: Primary `#1e40af`, Accent `#14b8a6`, Success `#10b981`
+- Spacing: 8px grid system (p-4, p-5, p-6, etc.)
+- Font sizes: text-xs (12px), text-sm (14px), text-base (16px), text-lg (18px)
+
+### References
+
+- design-system.md: Complete design specification
+- onboarding-mockup-with-form.excalidraw: UI mockup
+- implement_plan.md: Section 3, Task 5
 
 ---
 
-## 6) Integration - Wire UI to CopilotKit
+## Task 5E: Registry Wrapper Components
 
-### Goal
-Connect the UI components to the CopilotKit workflow engine and component registry.
+**ID**: COMP-005E
+**Priority**: High
+**Estimated Time**: 1 hour
+**Dependencies**: Task 3 (Registry), Task 5B (GenericForm)
 
-### Implementation Steps
+### Description
 
-**0. Wrap App with CopilotKit Provider**
-```tsx
-// app/layout.tsx
-import { CopilotKit } from '@copilotkit/react-core';
+Create wrapper components that adapt schema-driven UI components to the registry interface. Wrappers extract schemas from `data` prop and pass to generic components.
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <body>
-        <CopilotKit runtimeUrl="/api/copilotkit">{children}</CopilotKit>
-      </body>
-    </html>
-  );
-}
-```
+### Objectives
 
-**A. Register UI Components**
-```typescript
-// src/lib/ui/component-registry.ts
-import { BusinessInfoForm } from '@/components/onboarding/business-info-form';
-
-const UI_COMPONENT_REGISTRY: Record<string, React.ComponentType<RegistryComponentProps>> = {
-  'business-info-form': BusinessInfoFormWrapper,
-  'document-upload': DocumentUploadWrapper,
-  'review-summary': ReviewSummaryWrapper,
-};
-
-function BusinessInfoFormWrapper({ data, status, onComplete }: RegistryComponentProps) {
-  return (
-    <BusinessInfoForm
-      initialData={data}
-      onSubmit={(formData) => {
-        onComplete({ action: 'submit', data: formData });
-      }}
-    />
-  );
-}
-```
-
-**B. Wire MiddlePane to Workflow State**
-```typescript
-// src/app/page.tsx or main component
-const { currentStep, collectedInputs, missingFields } = useComposableOnboardingState();
-
-return (
-  <ThreePaneLayout>
-    <LeftPane />
-    <MiddlePane
-      client={{
-        name: collectedInputs.legal_name || 'Acme Corp',
-        email: collectedInputs.contact_email,
-        risk: calculateRiskScore(collectedInputs),
-        // ...
-      }}
-      requiredFields={currentStep?.required_fields?.map(field => ({
-        name: field,
-        status: collectedInputs[field] ? 'completed' : 'pending',
-        value: collectedInputs[field]
-      }))}
-    />
-    <RightPane />
-  </ThreePaneLayout>
-);
-```
-
-**C. Connect Chat to CopilotKit**
-```typescript
-// Use useCopilotChat hook (if available) or build custom chat integration
-import { useCopilotChat } from '@copilotkit/react-core';
-const { messages, sendMessage } = useCopilotChat();
-
-<ChatPanel messages={messages} onSendMessage={sendMessage} />
-```
+- Implement `GenericFormWrapper`
+- Implement `GenericDocumentUploadWrapper` (placeholder)
+- Implement `GenericDataTableWrapper` (placeholder)
+- Implement `ReviewSummaryWrapper` (placeholder)
+- Register all wrappers in registry
 
 ### Acceptance Criteria
-- ✅ Form submission updates `collectedInputs`
-- ✅ MiddlePane reflects current workflow state
-- ✅ Required fields update in real-time
-- ✅ Timeline shows workflow events
-- ✅ Chat integrated with CopilotKit
-- ✅ AI can trigger form renders via `renderUI` action
+
+- ✅ `GenericFormWrapper` extracts `schema` and `initialValues` from `data`
+- ✅ Wrapper passes schema to `GenericForm`
+- ✅ Wrapper handles `onSubmit` → `onComplete({ action: 'submit', data })`
+- ✅ Wrapper handles `onCancel` → `onComplete({ action: 'cancel', data: {} })`
+- ✅ Wrapper passes `status` to enable loading states
+- ✅ All 4 wrappers registered in registry
+- ✅ Placeholder wrappers return "Coming soon" message
+- ✅ Integration test: Registry → Wrapper → Component flow
+
+### Files to Create
+
+- `components/onboarding/generic-form-wrapper.tsx` - Form wrapper
+- `components/onboarding/generic-document-upload-wrapper.tsx` - Document wrapper (placeholder)
+- `components/onboarding/generic-data-table-wrapper.tsx` - Table wrapper (placeholder)
+- `components/onboarding/review-summary-wrapper.tsx` - Review wrapper (placeholder)
+
+### Files to Modify
+
+- `lib/ui/component-registry.ts` - Add wrapper imports and registry entries
+
+### Testing Requirements
+
+- **Integration Test**: Test registry lookup → wrapper → component chain
+- **Unit Test**: Test wrapper data extraction and prop passing
+
+### Technical Notes
+
+- Wrappers are thin adapters (< 30 lines each)
+- Extract `data.schema` with fallback to empty schema
+- Extract `data.initialValues` with fallback to `{}`
+- Pass `status === 'executing'` as `isLoading` boolean
+
+### References
+
+- implement_plan.md: Section 2.1.6 (Wrapper pattern)
+- strategy.md: Component Registry Strategy
 
 ---
 
-## 7) Documentation
-- Update developer docs for self-hosting and YAML authoring patterns.
-- Document design system and component usage.
-- Add mockup reference and design rationale.
-- Acceptance: A new contributor can follow docs to run POC end-to-end.
+## Task 6: End-to-End Integration
+
+**ID**: COMP-006
+**Priority**: High (Critical Path)
+**Estimated Time**: 1 hour
+**Dependencies**: All previous tasks (1-5E)
+
+### Description
+
+Wire all components together for end-to-end workflow execution. Connect UI to workflow state, integrate CopilotKit actions, and test complete user flow.
+
+### Objectives
+
+- Create main page with three-pane layout
+- Connect `useWorkflowState` hook
+- Implement `renderUI` CopilotKit action with registry
+- Wire MiddlePane to workflow state
+- Test complete onboarding flow
+
+### Acceptance Criteria
+
+- ✅ Main page (`app/page.tsx`) renders three-pane layout
+- ✅ Workflow loads on page mount
+- ✅ `useWorkflowState` hook manages state
+- ✅ `renderUI` action retrieves component from registry
+- ✅ Action passes resolved schema to component
+- ✅ Form submission updates `collectedInputs`
+- ✅ Required fields display in MiddlePane updates in real-time
+- ✅ Step progression works on valid submission
+- ✅ Conditional branching works (e.g., risk_score > 70)
+- ✅ END state reached and displayed
+- ✅ Integration test: Complete workflow end-to-end
+
+### Files to Create
+
+- `app/page.tsx` - Main onboarding page
+- `components/workflow-chat.tsx` - CopilotKit action integration
+
+### Files to Modify
+
+- `app/layout.tsx` - Wrap with CopilotKit provider
+
+### Testing Requirements
+
+- **Integration Test**:
+  - Load workflow
+  - Fill form
+  - Submit
+  - Verify state update
+  - Verify progression
+  - Complete workflow to END
+- **Manual Test**: Full user flow in browser
+
+### Technical Notes
+
+- Use `CopilotKit` provider with `runtimeUrl="/api/copilotkit"`
+- `useCopilotAction` with `renderAndWaitForResponse`
+- `useCopilotReadable` to expose current step context to AI
+- Handle `status` prop for loading states
+
+### References
+
+- implement_plan.md: Section 3, Task 6
+- Context7: useCopilotAction with renderAndWaitForResponse (/copilotkit/copilotkit)
+
+---
+
+## Task 7: Documentation
+
+**ID**: COMP-007
+**Priority**: Medium
+**Estimated Time**: 1 hour
+**Dependencies**: Task 6 (Integration complete)
+
+### Description
+
+Create comprehensive documentation for setup, usage, and architecture. Ensure new contributors can run POC end-to-end.
+
+### Objectives
+
+- Write README with setup instructions
+- Document YAML schema format
+- Document component registry pattern
+- Add architecture diagrams
+- Document design system
+
+### Acceptance Criteria
+
+- ✅ README.md with:
+  - Project overview
+  - Setup instructions (npm install, env vars)
+  - Running locally (npm run dev)
+  - Project structure explanation
+  - Key concepts (two-level YAML, schema-driven components)
+- ✅ docs/yaml-schema.md with:
+  - Workflow file format
+  - Task file format
+  - Inheritance rules
+  - Examples
+- ✅ docs/component-guide.md with:
+  - How to use GenericForm
+  - How to add new component types
+  - Registry pattern explanation
+- ✅ docs/architecture.md with:
+  - Four-layer architecture diagram
+  - Data flow explanation
+  - Technology stack
+- ✅ New contributor can follow docs to run POC
+
+### Files to Create
+
+- `README.md` - Main documentation
+- `docs/yaml-schema.md` - YAML format guide
+- `docs/component-guide.md` - Component usage guide
+- `docs/architecture.md` - Architecture overview
+
+### Testing Requirements
+
+- **Documentation Test**: Have someone unfamiliar follow setup instructions
+- **Accuracy Test**: Verify all commands work as documented
+
+### Technical Notes
+
+- Use clear, concise language
+- Include code examples
+- Add screenshots/diagrams where helpful
+- Link to relevant files in codebase
+
+### References
+
+- implement_plan.md: Section 3, Task 7
+- All planning documents for reference
+
+---
+
+## Dependency Graph
+
+```
+Task 1 (CopilotKit Runtime) ─────────────────────┐
+                                                  ├─→ Task 6 (Integration)
+Task 2 (YAML Loader) ────────→ Task 4A ─┐        │
+                                         │        │
+Task 3 (Registry) ───────────────────────┼────────┤
+                                         │        │
+Task 5A (Schema Types) ──→ Task 5B ──────┼────────┤
+                      └──→ Task 5C ──────┤        │
+                                         │        │
+Task 5D (Layout) ────────────────────────┤        │
+                                         │        │
+Task 4A (Machine) ──→ Task 4C ──→ Task 4D┼────────┤
+                      ↑                   │        │
+Task 4B (Expression) ─┘                  │        │
+                                         │        │
+Task 5E (Wrappers) ──────────────────────┼────────┘
+                                         │
+                                         ↓
+                                    Task 7 (Docs)
+```
+
+### Parallel Work Opportunities
+
+**Phase 1** (Can work in parallel):
+- Task 1: CopilotKit Runtime
+- Task 2: YAML Loader
+- Task 3: Component Registry
+- Task 4B: Expression Evaluation
+- Task 5A: Schema Types
+- Task 5D: Layout Components
+
+**Phase 2** (After Phase 1):
+- Task 4A: Runtime Machine (needs Task 2)
+- Task 5B: Generic Form (needs Task 5A)
+- Task 5C: FormField (needs Task 5A)
+
+**Phase 3** (After Phase 2):
+- Task 4C: State Transition (needs Task 4A, 4B)
+- Task 5E: Wrappers (needs Task 3, 5B)
+
+**Phase 4** (After Phase 3):
+- Task 4D: Workflow Hook (needs Task 4A, 4B, 4C)
+
+**Phase 5** (Final):
+- Task 6: Integration (needs all previous)
+
+**Phase 6** (Post-implementation):
+- Task 7: Documentation
+
+---
+
+## Success Metrics
+
+### POC Completion Criteria
+
+- ✅ All 14 tasks completed
+- ✅ 2+ workflows execute successfully (corporate, individual)
+- ✅ Task inheritance works
+- ✅ Conditional branching works
+- ✅ Forms validate and collect data
+- ✅ AI assistant responds appropriately
+- ✅ 80%+ test coverage
+- ✅ Documentation complete
+- ✅ New contributor can run POC end-to-end
+
+### Performance Targets
+
+- Workflow loading: < 100ms
+- Step transition: < 50ms
+- Form rendering: < 100ms
+- AI response: < 3s
+
+### Code Quality Standards
+
+- TypeScript strict mode: ✅
+- ESLint no errors: ✅
+- All tests passing: ✅
+- No console errors: ✅
+
+---
+
+## Notes
+
+**Total Estimated Time**: 18-20 hours
+- Critical path: Tasks 1, 2, 3, 4A-D, 5A-E, 6 (16-18 hours)
+- Parallel work can reduce calendar time to ~10-12 hours
+
+**Key Architectural Principles**:
+1. Two-level YAML: Workflows = orchestration, Tasks = ground truth
+2. Schema-driven components: One component, unlimited variations
+3. Component registry: Decouple actions from UI
+4. Self-hosted runtime: No cloud API keys
+
+**Testing Strategy**:
+- Unit tests: 80%+ coverage
+- Integration tests: End-to-end workflow execution
+- Manual testing: UI/UX verification
