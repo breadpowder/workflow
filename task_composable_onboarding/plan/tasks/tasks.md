@@ -1,9 +1,12 @@
 # Composable Onboarding POC - Task Breakdown
 
 **Project**: Composable Onboarding Proof of Concept
-**Architecture**: Two-Level YAML + Schema-Driven Components + Self-Hosted CopilotKit + Stages + Persistence
-**Total Tasks**: 16 (added Task 2B: Client State Persistence, Task 4E: Stage Support)
-**Total Estimated Time**: 19.5-21.5 hours
+**Architecture**: Two-Level YAML + Schema-Driven Components + Self-Hosted CopilotKit + Stages + Persistence + Chat-First Overlay UI
+**Total Tasks**: 21
+- Original: 14 tasks
+- Added: Task 2B (Persistence), Task 4E (Stages)
+- Added: Tasks 5F-5J (Chat-First Overlay UI: 5 tasks)
+**Total Estimated Time**: 27-29.5 hours
 **Status**: Ready for Implementation
 
 ---
@@ -866,6 +869,260 @@ Create wrapper components that adapt schema-driven UI components to the registry
 
 - implement_plan.md: Section 2.1.6 (Wrapper pattern)
 - strategy.md: Component Registry Strategy
+
+---
+
+## Task 5F: Chat Section Component
+
+**ID**: COMP-005F
+**Priority**: High
+**Estimated Time**: 2 hours
+**Dependencies**: None
+
+### Description
+
+Create chat interface component with message display, input box, and system message support. This is the primary interface in the right panel.
+
+### Objectives
+
+- Create `components/chat/chat-section.tsx`
+- Display message list (user, AI, system messages)
+- Input box at bottom with send button
+- Auto-scroll to latest message
+- Support for system messages (success, error, info, warning)
+- Handle dimmed state when overlay active
+
+### Acceptance Criteria
+
+- ✅ Displays all messages in scrollable list
+- ✅ User messages right-aligned, AI messages left-aligned
+- ✅ System messages styled distinctly (icons, colored backgrounds)
+- ✅ Input box fixed at bottom
+- ✅ Auto-scrolls to new messages
+- ✅ Supports `className` prop for conditional styling (dimmed when overlay)
+- ✅ Accessible: proper ARIA labels, keyboard navigation
+- ✅ Unit tests for message rendering and auto-scroll
+
+### Files to Create
+
+- `components/chat/chat-section.tsx` - Main chat interface
+- `components/chat/message.tsx` - Individual message component
+- `components/chat/system-message.tsx` - System message component
+
+### Technical Notes
+
+- Use flexbox with flex-direction: column-reverse for auto-scroll
+- Message list in `<div>` with `overflow-y-auto`
+- Input box in `<form>` with onSubmit handler
+- System messages: different icon per type (✓ success, ✗ error, ⓘ info, ⚠ warning)
+- Support markdown in messages (optional P1)
+
+### References
+
+- implement_plan.md: Section 2.2.8 (Chat-First Dynamic UI Architecture)
+- strategy.md: Chat-First Dynamic UI Pattern
+
+---
+
+## Task 5G: Form Overlay Component
+
+**ID**: COMP-005G
+**Priority**: High (Critical Path)
+**Estimated Time**: 2.5 hours
+**Dependencies**: Task 3 (Component Registry), Task 5F (Chat Section)
+
+### Description
+
+Create form overlay component that renders forms on top of chat with backdrop, animations, and close triggers. Core component of the chat-first UI pattern.
+
+### Objectives
+
+- Create `components/onboarding/form-overlay.tsx`
+- Render form component from registry by componentId
+- Backdrop with click-to-close
+- Close button (X) and Cancel action
+- Escape key handler
+- Slide-in/fade-in animation (200-300ms)
+- Mobile-responsive (full-screen on mobile, 80% width desktop)
+- Accessibility: focus trap, ARIA labels
+
+### Acceptance Criteria
+
+- ✅ Renders component from registry by componentId
+- ✅ Backdrop dims background (opacity 0.4-0.6)
+- ✅ Click backdrop closes overlay
+- ✅ X button closes overlay
+- ✅ Escape key closes overlay
+- ✅ Slide-in animation on entrance
+- ✅ Form container centered, 80% width desktop, full-screen mobile
+- ✅ Form container scrollable if content exceeds viewport
+- ✅ Focus trapped within overlay when open
+- ✅ ARIA: `role="dialog"`, `aria-modal="true"`
+- ✅ onSubmit callback with form data
+- ✅ onClose callback without data
+- ✅ Unit tests for open/close behavior and accessibility
+
+### Files to Create
+
+- `components/onboarding/form-overlay.tsx` - Overlay container
+
+### Technical Notes
+
+- Fixed positioning: `position: fixed; inset: 0;`
+- Backdrop: `bg-black/50 backdrop-blur-sm`
+- Animation: CSS keyframes for slideIn
+- Focus trap: use `useEffect` with `tabIndex` management
+- Z-index: `z-50` to ensure overlay above other content
+- Error handling: Show error if component not found in registry
+
+### References
+
+- implement_plan.md: Section 2.2.8 (FormOverlay Component)
+- strategy.md: Chat-First Dynamic UI Pattern (Overlay Behavior)
+
+---
+
+## Task 5H: Right Panel Refactor (Chat-First)
+
+**ID**: COMP-005H
+**Priority**: High (Critical Path)
+**Estimated Time**: 1.5 hours
+**Dependencies**: Task 5F (Chat Section), Task 5G (Form Overlay)
+
+### Description
+
+Refactor right panel component to implement chat-first pattern with overlay state management. Remove static form section; chat now full-height by default.
+
+### Objectives
+
+- Update `components/layout/right-pane.tsx`
+- Remove static form section
+- Add overlay state management
+- Render ChatSection as default (full height)
+- Conditionally render FormOverlay when overlay state active
+- Pass overlay props (onSubmit, onClose) to FormOverlay
+
+### Acceptance Criteria
+
+- ✅ Static form section removed
+- ✅ ChatSection renders full height by default
+- ✅ Overlay state: `{ visible: boolean, componentId: string | null, data: any }`
+- ✅ FormOverlay renders conditionally when `visible === true`
+- ✅ ChatSection receives `className` prop to dim when overlay active
+- ✅ onSubmit handler updates workflow state and closes overlay
+- ✅ onClose handler closes overlay without submitting
+- ✅ Integration with `useWorkflowState` hook for overlay state
+- ✅ Unit tests for state transitions (chat-only → overlay → chat-only)
+
+### Files to Modify
+
+- `components/layout/right-pane.tsx` - Refactor to chat-first
+
+### Technical Notes
+
+- State structure: `{ visible, componentId, data, step }`
+- Chat className: `overlayState.visible ? 'opacity-50 pointer-events-none' : 'h-full'`
+- onSubmit: update inputs → mark step complete → close overlay → add system message → progress workflow
+- onClose: close overlay → add system message ("Form closed. You can resume...")
+
+### References
+
+- implement_plan.md: Section 2.2.8 (Right Panel Component Structure)
+- strategy.md: Right Panel Component Structure
+
+---
+
+## Task 5I: Update Workflow Hook for Overlay State
+
+**ID**: COMP-005I
+**Priority**: High (Critical Path)
+**Estimated Time**: 1 hour
+**Dependencies**: Task 4 (Workflow Engine), Task 5H (Right Panel)
+
+### Description
+
+Update `useWorkflowState` hook to expose overlay state management functions and integrate with chat system messages.
+
+### Objectives
+
+- Add overlay state to `useWorkflowState` hook
+- Add `showFormOverlay(componentId, data, step)` function
+- Add `handleFormSubmit(formData)` function
+- Add `handleFormClose()` function
+- Add `addSystemMessage(message, type)` function
+- Integrate with workflow progression
+
+### Acceptance Criteria
+
+- ✅ Hook exports `overlayState`, `showFormOverlay`, `handleFormSubmit`, `handleFormClose`
+- ✅ `showFormOverlay` sets overlay state and adds system message
+- ✅ `handleFormSubmit` updates inputs, marks step complete, closes overlay, adds success message, progresses workflow
+- ✅ `handleFormClose` closes overlay and adds informational message
+- ✅ `addSystemMessage` adds message to chat with type (info, success, error, warning)
+- ✅ System messages included in message state
+- ✅ Unit tests for overlay state transitions
+- ✅ Integration test: full flow (show overlay → submit → progress workflow)
+
+### Files to Modify
+
+- `lib/workflow/hooks.ts` - Add overlay state and handlers
+
+### Technical Notes
+
+- Overlay state: `useState<OverlayState>({ visible: false, componentId: null, data: null, step: null })`
+- System messages: Add to messages array with `role: 'system'` and `type: 'info' | 'success' | 'error' | 'warning'`
+- handleFormSubmit: sequential operations (update → close → message → progress)
+- Error handling: If workflow progression fails, show error message but keep overlay closed
+
+### References
+
+- implement_plan.md: Section 2.2.8 (Overlay State Management)
+- strategy.md: Implementation Strategy
+
+---
+
+## Task 5J: Update renderUI Action for Overlay
+
+**ID**: COMP-005J
+**Priority**: High (Critical Path)
+**Estimated Time**: 30 minutes
+**Dependencies**: Task 5I (Workflow Hook Update)
+
+### Description
+
+Update CopilotKit `renderUI` action to trigger overlay instead of inline rendering. Change from `renderAndWaitForResponse` to `handler` pattern.
+
+### Objectives
+
+- Update `renderUI` action in main app component
+- Change from returning component to calling `showFormOverlay`
+- Return text message instead of JSX
+- Remove inline component rendering
+
+### Acceptance Criteria
+
+- ✅ `renderUI` action uses `handler` instead of `renderAndWaitForResponse`
+- ✅ Handler calls `showFormOverlay(componentId, data, currentStep)`
+- ✅ Handler returns text message: "Opening [component] form. Please complete and submit."
+- ✅ No inline JSX rendering
+- ✅ Integration test: AI calling renderUI triggers overlay
+- ✅ Form opens in overlay, not inline
+
+### Files to Modify
+
+- `app/page.tsx` (or wherever renderUI action is defined)
+
+### Technical Notes
+
+- Old pattern: `renderAndWaitForResponse: ({ args, status }) => <Component />`
+- New pattern: `handler: async ({ args }) => { showFormOverlay(...); return "message"; }`
+- Ensure `getCurrentStep()` available in scope
+- Ensure `showFormOverlay` imported from workflow hook
+
+### References
+
+- implement_plan.md: Section 2.2.8 (Updated renderUI Action Flow)
+- CopilotKit docs: Action handlers
 
 ---
 

@@ -1839,6 +1839,979 @@ END FUNCTION
 
 ---
 
+## Task 5F: Chat Section Component (~2 hours)
+
+**Objective:** Create full-height chat interface as primary interaction component
+
+**Files to Create:**
+- `components/chat/chat-section.tsx`
+- `components/chat/message.tsx`
+- `components/chat/system-message.tsx`
+
+**Pseudocode:**
+
+```typescript
+// ═══════════════════════════════════════════════════════════════
+// components/chat/message.tsx
+// ═══════════════════════════════════════════════════════════════
+
+interface MessageProps {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  type?: 'info' | 'success' | 'error' | 'warning'; // For system messages
+  timestamp?: Date;
+}
+
+export function Message({ role, content, type, timestamp }: MessageProps) {
+  /*
+  Purpose: Render individual message with role-specific styling
+
+  Layout:
+  - User messages: right-aligned, blue background
+  - AI messages: left-aligned, gray background
+  - System messages: centered, colored by type
+
+  Algorithm:
+  1. Determine styling class based on role and type
+  2. Render message bubble
+  3. Include timestamp if provided
+  */
+
+  const styles = {
+    user: 'ml-auto bg-blue-600 text-white',
+    assistant: 'mr-auto bg-gray-100 text-gray-900',
+    system: {
+      info: 'mx-auto bg-blue-50 border-blue-200 text-blue-800',
+      success: 'mx-auto bg-green-50 border-green-200 text-green-800',
+      error: 'mx-auto bg-red-50 border-red-200 text-red-800',
+      warning: 'mx-auto bg-yellow-50 border-yellow-200 text-yellow-800'
+    }
+  };
+
+  if (role === 'system') {
+    return (
+      <div className={`system-message ${styles.system[type || 'info']}`}>
+        <Icon type={type} />
+        <span>{content}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`message ${styles[role]}`}>
+      <div className="message-content">
+        {content}
+      </div>
+      {timestamp && (
+        <div className="message-timestamp">
+          {formatTime(timestamp)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// components/chat/system-message.tsx
+// ═══════════════════════════════════════════════════════════════
+
+interface SystemMessageProps {
+  type: 'info' | 'success' | 'error' | 'warning';
+  children: React.ReactNode;
+}
+
+export function SystemMessage({ type, children }: SystemMessageProps) {
+  /*
+  Purpose: Render system message with icon and colored background
+
+  Icon mapping:
+  - info: ⓘ (info circle)
+  - success: ✓ (checkmark)
+  - error: ✗ (x mark)
+  - warning: ⚠ (warning triangle)
+  */
+
+  const icons = {
+    info: <InfoIcon className="w-4 h-4" />,
+    success: <CheckCircleIcon className="w-4 h-4" />,
+    error: <XCircleIcon className="w-4 h-4" />,
+    warning: <AlertTriangleIcon className="w-4 h-4" />
+  };
+
+  const styles = {
+    info: 'bg-blue-50 border-blue-200 text-blue-800',
+    success: 'bg-green-50 border-green-200 text-green-800',
+    error: 'bg-red-50 border-red-200 text-red-800',
+    warning: 'bg-yellow-50 border-yellow-200 text-yellow-800'
+  };
+
+  return (
+    <div
+      className={`flex items-center gap-2 p-3 border rounded-lg ${styles[type]}`}
+      role="status"
+      aria-live="polite"
+    >
+      {icons[type]}
+      <span className="text-sm">{children}</span>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// components/chat/chat-section.tsx
+// ═══════════════════════════════════════════════════════════════
+
+interface ChatSectionProps {
+  messages: Message[];
+  onSendMessage: (message: string) => void;
+  className?: string;
+  disabled?: boolean; // When overlay is open
+}
+
+export function ChatSection({
+  messages,
+  onSendMessage,
+  className,
+  disabled = false
+}: ChatSectionProps) {
+  /*
+  Purpose: Full-height chat interface with message list and input
+
+  Layout:
+  ┌─────────────────────┐
+  │ Messages (scroll)   │
+  │ [Message 1]         │
+  │ [Message 2]         │
+  │ [Message 3]         │
+  │ ...                 │
+  ├─────────────────────┤
+  │ [Input] [Send]      │
+  └─────────────────────┘
+
+  Algorithm:
+  1. Display message list (auto-scroll to bottom)
+  2. Render input box fixed at bottom
+  3. Handle send message
+  4. Disable interaction when overlay active
+  */
+
+  const [inputValue, setInputValue] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to latest message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!inputValue.trim() || disabled) return;
+
+    onSendMessage(inputValue);
+    setInputValue('');
+  };
+
+  return (
+    <div className={cn('flex flex-col h-full', className)}>
+      {/* Message list - scrollable */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((msg, idx) => (
+          <Message
+            key={idx}
+            role={msg.role}
+            content={msg.content}
+            type={msg.type}
+            timestamp={msg.timestamp}
+          />
+        ))}
+        {/* Scroll anchor */}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input box - fixed at bottom */}
+      <div className="border-t p-4 bg-white">
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder={disabled ? "Please complete the form..." : "Type a message..."}
+            className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={disabled}
+          />
+          <button
+            type="submit"
+            disabled={disabled || !inputValue.trim()}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            Send
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+```
+
+**Styling Notes:**
+
+```css
+/* Message styling */
+.message {
+  @apply max-w-[80%] p-3 rounded-lg;
+}
+
+.message.user {
+  @apply ml-auto bg-blue-600 text-white rounded-br-none;
+}
+
+.message.assistant {
+  @apply mr-auto bg-gray-100 text-gray-900 rounded-bl-none;
+}
+
+.system-message {
+  @apply mx-auto max-w-[90%] flex items-center gap-2 p-3 border rounded-lg text-sm;
+}
+
+/* Auto-scroll behavior */
+.messages-container {
+  /* Use flexbox with column-reverse for auto-scroll */
+  @apply flex flex-col-reverse overflow-y-auto;
+}
+```
+
+**Accessibility:**
+- ARIA labels on input: `aria-label="Chat message input"`
+- System messages: `role="status"` and `aria-live="polite"`
+- Focus management: Input should receive focus when overlay closes
+
+---
+
+## Task 5G: Form Overlay Component (~2.5 hours)
+
+**Objective:** Create modal overlay for rendering forms on top of chat
+
+**Files to Create:**
+- `components/onboarding/form-overlay.tsx`
+
+**Pseudocode:**
+
+```typescript
+// ═══════════════════════════════════════════════════════════════
+// components/onboarding/form-overlay.tsx
+// ═══════════════════════════════════════════════════════════════
+
+interface FormOverlayProps {
+  componentId: string;
+  data: any;
+  onSubmit: (formData: any) => void;
+  onClose: () => void;
+  isOpen: boolean;
+}
+
+export function FormOverlay({
+  componentId,
+  data,
+  onSubmit,
+  onClose,
+  isOpen
+}: FormOverlayProps) {
+  /*
+  Purpose: Modal overlay for form rendering
+
+  Components:
+  1. Backdrop - semi-transparent, click to close
+  2. Form container - centered, scrollable
+  3. Close button - top-right X
+  4. Form component - from registry
+
+  Behavior:
+  - Escape key closes overlay
+  - Click outside closes overlay
+  - Focus trap: tab cycles within overlay
+  - Animation: slide-in from bottom
+  */
+
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  // Get component from registry
+  const Component = getComponent(componentId);
+
+  // ─────────────────────────────────────────────────────────────
+  // ESCAPE KEY HANDLER
+  // ─────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
+  // ─────────────────────────────────────────────────────────────
+  // FOCUS TRAP
+  // ─────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!isOpen || !overlayRef.current) return;
+
+    // Save previous focus
+    previousFocusRef.current = document.activeElement as HTMLElement;
+
+    // Focus first input in overlay
+    const firstInput = overlayRef.current.querySelector<HTMLElement>(
+      'input, textarea, select, button'
+    );
+    firstInput?.focus();
+
+    // Trap focus within overlay
+    const handleTabKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !overlayRef.current) return;
+
+      const focusableElements = overlayRef.current.querySelectorAll<HTMLElement>(
+        'button, input, textarea, select, [tabindex]:not([tabindex="-1"])'
+      );
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (e.shiftKey) {
+        // Shift + Tab
+        if (document.activeElement === firstElement) {
+          lastElement.focus();
+          e.preventDefault();
+        }
+      } else {
+        // Tab
+        if (document.activeElement === lastElement) {
+          firstElement.focus();
+          e.preventDefault();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleTabKey);
+
+    // Cleanup: restore focus
+    return () => {
+      document.removeEventListener('keydown', handleTabKey);
+      previousFocusRef.current?.focus();
+    };
+  }, [isOpen]);
+
+  // ─────────────────────────────────────────────────────────────
+  // HANDLE BACKDROP CLICK
+  // ─────────────────────────────────────────────────────────────
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    // Only close if clicking backdrop itself, not form container
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // HANDLE FORM COMPLETE
+  // ─────────────────────────────────────────────────────────────
+
+  const handleComplete = (result: { action: string; data: any }) => {
+    /*
+    Purpose: Handle form completion
+
+    Actions:
+    - submit: Call onSubmit with data
+    - cancel: Call onClose without data
+    */
+
+    if (result.action === 'submit') {
+      onSubmit(result.data);
+    } else if (result.action === 'cancel') {
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  if (!Component) {
+    return (
+      <div className="overlay-error">
+        <p>Component "{componentId}" not found in registry</p>
+        <button onClick={onClose}>Close</button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="form-overlay-container"
+      onClick={handleBackdropClick}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="overlay-title"
+      ref={overlayRef}
+    >
+      {/* Backdrop */}
+      <div className="backdrop" />
+
+      {/* Form container */}
+      <div className="form-container">
+        {/* Close button */}
+        <button
+          className="close-button"
+          onClick={onClose}
+          aria-label="Close form"
+        >
+          ✕
+        </button>
+
+        {/* Form component from registry */}
+        <Component
+          data={data}
+          status="inProgress"
+          onComplete={handleComplete}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+**Styling (Tailwind + CSS):**
+
+```css
+/* Overlay container */
+.form-overlay-container {
+  @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+}
+
+/* Backdrop */
+.backdrop {
+  @apply absolute inset-0 bg-black/50 backdrop-blur-sm;
+  animation: fadeIn 0.15s ease-out;
+}
+
+/* Form container */
+.form-container {
+  @apply relative bg-white rounded-lg shadow-2xl max-h-[90vh] overflow-y-auto;
+  @apply w-full max-w-2xl p-6;
+  animation: slideIn 0.2s ease-out;
+}
+
+/* Close button */
+.close-button {
+  @apply absolute top-4 right-4 w-8 h-8 flex items-center justify-center;
+  @apply rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700;
+  @apply transition-colors;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Mobile: Full screen */
+@media (max-width: 768px) {
+  .form-container {
+    @apply max-w-full h-full m-0 rounded-none;
+    animation: slideInMobile 0.3s ease-out;
+  }
+
+  @keyframes slideInMobile {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+}
+```
+
+---
+
+## Task 5H: Right Panel Refactor (~1.5 hours)
+
+**Objective:** Refactor right panel to chat-first with conditional overlay
+
+**Files to Modify:**
+- `components/layout/right-pane.tsx`
+
+**Pseudocode:**
+
+```typescript
+// ═══════════════════════════════════════════════════════════════
+// components/layout/right-pane.tsx
+// ═══════════════════════════════════════════════════════════════
+
+interface RightPaneProps {
+  clientId: string;
+}
+
+export function RightPane({ clientId }: RightPaneProps) {
+  /*
+  Purpose: Chat-first interface with overlay support
+
+  States:
+  1. Chat-only (default) - full height chat
+  2. Overlay active - chat dimmed, form overlay visible
+  3. Post-submit - return to chat with success message
+
+  Algorithm:
+  1. Render ChatSection (always present)
+  2. Conditionally render FormOverlay when overlay state active
+  3. Handle form submission and closure
+  4. Manage system messages
+  */
+
+  // Get workflow state and overlay handlers from hook
+  const {
+    messages,
+    overlayState,
+    handleFormSubmit,
+    handleFormClose,
+    sendMessage
+  } = useWorkflowState(clientId);
+
+  return (
+    <div className="h-full relative">
+      {/* Chat Section - always present */}
+      <ChatSection
+        messages={messages}
+        onSendMessage={sendMessage}
+        className={overlayState.visible ? 'opacity-50 pointer-events-none' : ''}
+        disabled={overlayState.visible}
+      />
+
+      {/* Form Overlay - conditional */}
+      {overlayState.visible && overlayState.componentId && (
+        <FormOverlay
+          componentId={overlayState.componentId}
+          data={overlayState.data}
+          isOpen={overlayState.visible}
+          onSubmit={handleFormSubmit}
+          onClose={handleFormClose}
+        />
+      )}
+    </div>
+  );
+}
+```
+
+**State Flow:**
+
+```typescript
+/*
+State Transitions:
+
+1. Initial: Chat-Only
+   { visible: false, componentId: null, data: null }
+   └─> ChatSection renders full height
+
+2. Form Triggered (by AI or manual)
+   { visible: true, componentId: 'form', data: {...} }
+   └─> FormOverlay renders
+   └─> ChatSection dimmed
+
+3. Form Submitted
+   { visible: false, componentId: null, data: null }
+   └─> handleFormSubmit called
+   └─> Overlay closes
+   └─> Success message added to chat
+   └─> Workflow progresses
+
+4. Form Closed (without submit)
+   { visible: false, componentId: null, data: null }
+   └─> handleFormClose called
+   └─> Overlay closes
+   └─> Info message added to chat
+*/
+```
+
+---
+
+## Task 5I: Update Workflow Hook for Overlay State (~1 hour)
+
+**Objective:** Add overlay state management to useWorkflowState hook
+
+**Files to Modify:**
+- `lib/workflow/hooks.ts`
+
+**Pseudocode:**
+
+```typescript
+// ═══════════════════════════════════════════════════════════════
+// lib/workflow/hooks.ts - Add Overlay State
+// ═══════════════════════════════════════════════════════════════
+
+interface OverlayState {
+  visible: boolean;
+  componentId: string | null;
+  data: any;
+  step: WorkflowStep | null;
+}
+
+interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  type?: 'info' | 'success' | 'error' | 'warning';
+  timestamp: Date;
+}
+
+export function useWorkflowState(clientId: string) {
+  // ... existing state ...
+
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [overlayState, setOverlayState] = useState<OverlayState>({
+    visible: false,
+    componentId: null,
+    data: null,
+    step: null
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // ADD SYSTEM MESSAGE
+  // ─────────────────────────────────────────────────────────────
+
+  const addSystemMessage = useCallback((
+    content: string,
+    type: 'info' | 'success' | 'error' | 'warning' = 'info'
+  ) => {
+    /*
+    Purpose: Add system message to chat
+
+    Algorithm:
+    1. Create message object with role='system'
+    2. Include type for styling
+    3. Add timestamp
+    4. Append to messages array
+    */
+
+    const message: Message = {
+      role: 'system',
+      content,
+      type,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, message]);
+  }, []);
+
+  // ─────────────────────────────────────────────────────────────
+  // SHOW FORM OVERLAY
+  // ─────────────────────────────────────────────────────────────
+
+  const showFormOverlay = useCallback((
+    componentId: string,
+    data: any,
+    step: WorkflowStep
+  ) => {
+    /*
+    Purpose: Open form overlay
+
+    Algorithm:
+    1. Set overlay state (visible = true)
+    2. Store componentId, data, and step
+    3. Add system message to chat
+    */
+
+    setOverlayState({
+      visible: true,
+      componentId,
+      data,
+      step
+    });
+
+    addSystemMessage(
+      `Please fill out the ${step.task_ref} form to continue`,
+      'info'
+    );
+  }, [addSystemMessage]);
+
+  // ─────────────────────────────────────────────────────────────
+  // HANDLE FORM SUBMIT
+  // ─────────────────────────────────────────────────────────────
+
+  const handleFormSubmit = useCallback((formData: any) => {
+    /*
+    Purpose: Handle form submission
+
+    Algorithm:
+    1. Update collected inputs with form data
+    2. Mark current step as complete
+    3. Close overlay
+    4. Add success message to chat
+    5. Progress to next step
+    6. Add progression message to chat
+    */
+
+    // 1. Update inputs
+    setCollectedInputs(prev => ({
+      ...prev,
+      ...formData
+    }));
+
+    // 2. Mark step complete
+    if (overlayState.step) {
+      markStepComplete(overlayState.step.id);
+    }
+
+    // 3. Close overlay
+    setOverlayState({
+      visible: false,
+      componentId: null,
+      data: null,
+      step: null
+    });
+
+    // 4. Success message
+    addSystemMessage('Form submitted successfully!', 'success');
+
+    // 5. Progress workflow
+    const result = progressToNextStep();
+
+    // 6. Progression message
+    if (result.success) {
+      if (result.nextStepId === 'END') {
+        addSystemMessage('Workflow completed! 🎉', 'success');
+      } else {
+        addSystemMessage(
+          `Moving to next step: ${result.nextStepId}`,
+          'info'
+        );
+      }
+    } else {
+      addSystemMessage(
+        `Error progressing workflow: ${result.error}`,
+        'error'
+      );
+    }
+  }, [
+    overlayState,
+    markStepComplete,
+    progressToNextStep,
+    addSystemMessage
+  ]);
+
+  // ─────────────────────────────────────────────────────────────
+  // HANDLE FORM CLOSE
+  // ─────────────────────────────────────────────────────────────
+
+  const handleFormClose = useCallback(() => {
+    /*
+    Purpose: Handle overlay close without submitting
+
+    Algorithm:
+    1. Close overlay
+    2. Add informational message
+    */
+
+    setOverlayState({
+      visible: false,
+      componentId: null,
+      data: null,
+      step: null
+    });
+
+    addSystemMessage(
+      'Form closed. You can resume by asking me to continue.',
+      'info'
+    );
+  }, [addSystemMessage]);
+
+  // Return extended interface
+  return {
+    // ... existing exports ...
+    messages,
+    overlayState,
+    showFormOverlay,
+    handleFormSubmit,
+    handleFormClose,
+    addSystemMessage
+  };
+}
+```
+
+---
+
+## Task 5J: Update renderUI Action for Overlay (~30 min)
+
+**Objective:** Change renderUI action to trigger overlay instead of inline render
+
+**Files to Modify:**
+- `app/page.tsx` (or main app component)
+
+**Pseudocode:**
+
+```typescript
+// ═══════════════════════════════════════════════════════════════
+// app/page.tsx - Update renderUI Action
+// ═══════════════════════════════════════════════════════════════
+
+export default function OnboardingPage() {
+  const clientId = 'client_123'; // Or from route params
+
+  const {
+    machine,
+    currentStep,
+    showFormOverlay,
+    overlayState,
+    handleFormSubmit,
+    handleFormClose,
+    messages
+  } = useWorkflowState(clientId);
+
+  // ─────────────────────────────────────────────────────────────
+  // RENDER UI ACTION - OVERLAY PATTERN
+  // ─────────────────────────────────────────────────────────────
+
+  useCopilotAction({
+    name: "renderUI",
+    description: "Render a form to collect user input for the current workflow step",
+    parameters: [
+      {
+        name: "componentId",
+        type: "string",
+        description: "Component to render from registry",
+        enum: getRegisteredComponentIds(), // ['form', 'document-upload', 'review-summary']
+        required: true
+      },
+      {
+        name: "data",
+        type: "object",
+        description: "Initial data and schema for the form",
+        required: false
+      }
+    ],
+
+    // OLD PATTERN (Inline Rendering):
+    // renderAndWaitForResponse: ({ args, status }) => {
+    //   const Component = getComponent(args.componentId);
+    //   return <Component data={args.data} status={status} />;
+    // }
+
+    // NEW PATTERN (Trigger Overlay):
+    handler: async ({ args }) => {
+      /*
+      Purpose: Trigger form overlay instead of inline render
+
+      Algorithm:
+      1. Extract componentId and data from args
+      2. Get current step from workflow state
+      3. Call showFormOverlay to open overlay
+      4. Return text message (not JSX)
+
+      Result:
+      - Overlay appears on top of chat
+      - Chat remains visible but dimmed
+      - AI receives text confirmation
+      */
+
+      const { componentId, data } = args;
+
+      // Validation
+      if (!componentId) {
+        return "Error: componentId is required";
+      }
+
+      if (!currentStep) {
+        return "Error: No active workflow step";
+      }
+
+      // Trigger overlay
+      showFormOverlay(componentId, data || {}, currentStep);
+
+      // Return message (AI sees this response)
+      return `I've opened the ${componentId} form. Please complete it and click submit when you're ready.`;
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // RENDER PAGE
+  // ─────────────────────────────────────────────────────────────
+
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      <div className="h-screen flex">
+        {/* Left: Client list */}
+        <LeftPane />
+
+        {/* Middle: Profile & status */}
+        <MiddlePane
+          clientId={clientId}
+          workflow={machine}
+          currentStep={currentStep}
+        />
+
+        {/* Right: Chat-first with overlay */}
+        <RightPane clientId={clientId} />
+      </div>
+    </CopilotKit>
+  );
+}
+```
+
+**Key Changes:**
+
+```typescript
+/*
+BEFORE (Inline Rendering):
+─────────────────────────────
+useCopilotAction({
+  name: "renderUI",
+  renderAndWaitForResponse: ({ args, status }) => {
+    return <FormComponent data={args.data} status={status} />;
+  }
+});
+
+Result: Form renders inline in chat area
+Problem: Static form always visible, chat secondary
+
+
+AFTER (Overlay Pattern):
+─────────────────────────────
+useCopilotAction({
+  name: "renderUI",
+  handler: async ({ args }) => {
+    showFormOverlay(args.componentId, args.data, currentStep);
+    return "Form opened. Please complete and submit.";
+  }
+});
+
+Result: Form appears as overlay on top of chat
+Benefits:
+- Chat remains primary interface
+- Form dismisses after submission
+- Clean, focused interaction
+- Mobile-friendly modal pattern
+*/
+```
+
+---
+
 ## Task 6: End-to-End Integration
 
 **Reference**: tasks.md COMP-006
