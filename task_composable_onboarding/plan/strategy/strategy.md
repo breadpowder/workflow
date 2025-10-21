@@ -56,118 +56,210 @@ Decouple actions from UI via lookup table (component_id → React component).
       review/
         summary.yaml
   ```
-- **Two-Level YAML Examples**:
+- **Two-Level YAML Architecture**: Workflows reference tasks, tasks contain schemas
+
+**Key Separation**:
+- ✅ Workflows: Orchestration only (task references, transitions, conditions)
+- ✅ Tasks: Ground truth schemas (fields, validation, component config)
+- ❌ Workflows do NOT contain schemas or required_fields
+- ❌ Tasks cannot be overridden by workflows (strict ground truth)
 
 **Level 1 - Workflow File** (`data/workflows/corporate_onboarding_v1.yaml`):
   ```yaml
   id: wf_corporate_v1
   name: Corporate Onboarding v1
   version: 1
+  description: Complete onboarding workflow for corporate entities
+
   applies_to:
     client_type: corporate
-    jurisdictions: ["US", "CA"]
+    jurisdictions: ["US", "CA", "GB"]
+
   steps:
-    - id: getContactInfo
-      task_ref: collect_contact_info
-      component_id: form                    # Generic form component
-      schema:                                # Schema defines fields dynamically
-        fields:
-          - name: legal_name
-            label: "Legal Business Name"
-            type: text
-            required: true
-          - name: entity_type
-            label: "Entity Type"
-            type: select
-            required: true
-            options:
-              - { value: corporation, label: "Corporation" }
-              - { value: llc, label: "LLC" }
-              - { value: partnership, label: "Partnership" }
-          - name: jurisdiction
-            label: "Jurisdiction"
-            type: select
-            required: true
-            options:
-              - { value: US, label: "United States" }
-              - { value: CA, label: "Canada" }
-          - name: contact_email
-            label: "Business Email"
-            type: email
-            required: true
-          - name: contact_phone
-            label: "Business Phone"
-            type: tel
-            required: true
-        layout: two-column
-      required_fields: ["legal_name", "entity_type", "contact_email", "contact_phone"]
+    # Step 1: Collect corporate contact information
+    - id: collectContactInfo
+      task_ref: contact_info/corporate      # Reference to task file
       next:
         default: collectDocuments
 
+    # Step 2: Collect business documents
     - id: collectDocuments
-      task_ref: collect_business_documents
-      component_id: document-upload         # Generic document upload component
-      schema:                                # Schema defines required documents
-        documents:
-          - id: business_registration
-            label: "Certificate of Incorporation"
-            required: true
-            acceptedTypes: ["application/pdf"]
-            maxSize: 10485760
-          - id: tax_id
-            label: "Tax ID Document"
-            required: true
-            acceptedTypes: ["application/pdf"]
-            maxSize: 10485760
-          - id: proof_of_address
-            label: "Proof of Business Address"
-            required: true
-            acceptedTypes: ["application/pdf", "image/*"]
-            maxSize: 5242880
-      required_fields: ["business_registration", "tax_id", "proof_of_address"]
+      task_ref: documents/corporate         # Reference to task file
       next:
         conditions:
           - when: "risk_score > 70"
             then: enhancedDueDiligence
         default: review
 
+    # Step 3: Enhanced Due Diligence (conditional)
     - id: enhancedDueDiligence
-      task_ref: perform_edd
-      component_id: form                    # SAME form component, different schema
-      schema:
-        fields:
-          - name: source_of_funds
-            label: "Source of Funds"
-            type: textarea
-            required: true
-            helpText: "Describe the source of funds for this business"
-          - name: business_purpose
-            label: "Business Purpose"
-            type: textarea
-            required: true
-          - name: expected_transaction_volume
-            label: "Expected Monthly Transaction Volume"
-            type: select
-            required: true
-            options:
-              - { value: low, label: "< $10,000" }
-              - { value: medium, label: "$10,000 - $100,000" }
-              - { value: high, label: "> $100,000" }
-      required_fields: ["source_of_funds", "business_purpose", "expected_transaction_volume"]
+      task_ref: due_diligence/enhanced      # Reference to task file
       next:
         default: review
 
+    # Step 4: Review and submit
     - id: review
-      task_ref: review_and_submit
-      component_id: review-summary          # Review component shows all collected data
-      required_fields: []
+      task_ref: review/summary              # Reference to task file
       next:
         default: END
   ```
 
+**Level 2 - Task Files** (Ground Truth Schemas):
+
+**Base Task** (`data/tasks/_base/contact_info_base.yaml`):
+  ```yaml
+  id: task_contact_info_base
+  name: Contact Information (Base)
+  description: Base task with common contact fields
+  version: 1
+
+  component_id: form
+
+  required_fields:
+    - email
+    - phone
+
+  schema:
+    fields:
+      - name: email
+        label: "Email Address"
+        type: email
+        required: true
+        validation:
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+
+      - name: phone
+        label: "Phone Number"
+        type: tel
+        required: true
+        validation:
+          pattern: "^\\+?[1-9]\\d{1,14}$"
+
+  expected_output_fields:
+    - email
+    - phone
+  ```
+
+**Corporate Contact Task** (`data/tasks/contact_info/corporate.yaml`):
+  ```yaml
+  id: task_contact_info_corporate
+  name: Corporate Contact Information
+  version: 1
+
+  extends: _base/contact_info_base          # Inherits email/phone
+
+  component_id: form
+
+  required_fields:
+    - legal_name
+    - entity_type
+    - jurisdiction
+    - business_email
+    - business_phone
+
+  schema:
+    fields:
+      - name: legal_name
+        label: "Legal Business Name"
+        type: text
+        required: true
+        validation:
+          minLength: 2
+          maxLength: 200
+
+      - name: entity_type
+        label: "Entity Type"
+        type: select
+        required: true
+        options:
+          - { value: corporation, label: "Corporation" }
+          - { value: llc, label: "LLC" }
+          - { value: partnership, label: "Partnership" }
+
+      - name: jurisdiction
+        label: "Jurisdiction of Incorporation"
+        type: select
+        required: true
+        options:
+          - { value: US, label: "United States" }
+          - { value: CA, label: "Canada" }
+          - { value: GB, label: "United Kingdom" }
+
+      # Renamed inherited fields
+      - name: business_email
+        inherits: email                     # Inherits validation from base
+        label: "Business Email Address"
+
+      - name: business_phone
+        inherits: phone
+        label: "Business Phone Number"
+
+    layout: two-column
+    submitLabel: "Continue to Documents"
+
+  expected_output_fields:
+    - legal_name
+    - entity_type
+    - jurisdiction
+    - business_email
+    - business_phone
+  ```
+
+**Corporate Documents Task** (`data/tasks/documents/corporate.yaml`):
+  ```yaml
+  id: task_documents_corporate
+  name: Corporate Document Upload
+  version: 1
+
+  component_id: document-upload
+
+  required_fields:
+    - business_registration
+    - tax_id
+    - proof_of_address
+
+  schema:
+    documents:
+      - id: business_registration
+        label: "Certificate of Incorporation"
+        required: true
+        acceptedTypes: ["application/pdf"]
+        maxSize: 10485760
+        helpText: "Official registration from government authority"
+
+      - id: tax_id
+        label: "Tax ID Document"
+        required: true
+        acceptedTypes: ["application/pdf"]
+        maxSize: 10485760
+
+      - id: proof_of_address
+        label: "Proof of Business Address"
+        required: true
+        acceptedTypes: ["application/pdf", "image/*"]
+        maxSize: 5242880
+        helpText: "Must be dated within last 3 months"
+
+    allowMultiple: true
+    uploadLabel: "Upload Corporate Documents"
+
+  expected_output_fields:
+    - business_registration
+    - tax_id
+    - proof_of_address
+  ```
+
 **Composable Onboarding Interpreter (TS)**
-- Compile step ID → index, pick initial step, evaluate `next` via simple expressions (`==, !=, >, >=, <, <=`).
-- Helper functions: `missingRequiredFields`, `nextStepId`.
+- **Two-Stage Loading**:
+  1. Load workflow definition from `data/workflows/*.yaml`
+  2. Resolve all task references from `data/tasks/**/*.yaml`
+  3. Resolve task inheritance (if task `extends` base task)
+  4. Compile into runtime machine with resolved schemas
+- **Runtime Engine**:
+  - Compile step ID → index, pick initial step
+  - Evaluate `next` via simple expressions (`==, !=, >, >=, <, <=`)
+  - Helper functions: `missingRequiredFields`, `nextStepId`
+  - Task's `required_fields` are ground truth for validation
 
 **UI & Runtime (CopilotKit)**
 - Next.js UI wraps with `CopilotKit runtimeUrl="/api/copilotkit"`.
@@ -199,11 +291,20 @@ const UI_COMPONENT_REGISTRY = {
   - Use cases: Beneficial owners, transaction lists
 
 ## Minimal Endpoints
-- `GET /api/workflows?client_type=...&jurisdiction=...` → compiled machine JSON with schemas
+- `GET /api/workflows?client_type=...&jurisdiction=...` → compiled machine JSON with resolved schemas
+  - Workflow file loaded from disk
+  - All task references resolved
+  - Task inheritance computed
+  - Schemas merged into steps
+  - Returns: fully compiled workflow ready for execution
 
 ## POC Task Breakdown
 1. Set up self-hosted CopilotKit runtime (~2 hours)
-2. Implement YAML workflow loader (~2 hours)
+2. **Implement two-stage YAML workflow loader** (~2 hours):
+   - Load workflow files
+   - Load and resolve task files
+   - Resolve task inheritance
+   - Validate references and schemas
 3. Build component registry with generic renderUI action (~2 hours)
 4. Create workflow engine (transitions, validation, state management) (~4 hours)
 5. **Build schema-driven UI components** (~6 hours):
