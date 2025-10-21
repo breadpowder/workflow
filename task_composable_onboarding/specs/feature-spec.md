@@ -1,86 +1,115 @@
-# Composable Onboarding Composable Onboarding PRD
+# Composable Onboarding — Feature PRD
 
 ## Problem Statement
-- Current onboarding agent prompt couples composable_onboarding definitions, client state, and task lists into a single monolithic context, making updates brittle and error-prone.
-- Non-technical stakeholders cannot adjust composable_onboarding steps for different client segments (e.g., corporate vs. individual) without developer intervention.
-- The LLM lacks selective retrieval, increasing hallucination risk and forcing round-trip edits to multiple markdown files.
-- There is no lifecycle management (versioning, approvals, rollback) for composable_onboarding definitions, creating compliance risk for regulated onboarding processes.
+- Current onboarding is manual, static, and spreadsheet/email–driven. Progress is hard to track, updates are brittle, and only one person typically has a clear view of status.
+- The existing POC demonstrates guided onboarding but relies on file-based definitions and manual chat-driven changes that do not scale to multi-user, role-based usage.
+- Non-technical stakeholders cannot safely adjust onboarding steps for different client types (e.g., institutional vs. SMA) without developer help.
+- There is no deterministic, configuration-driven progression of tasks and stages; governance (versioning/approvals/rollback) is absent.
+
+Goals (P0 from DOCX, aligned to current architecture):
+- Standardize a simplified onboarding template with predefined stages, tasks, and statuses.
+- Enable dynamic progression: completing all tasks in a stage moves the workflow forward deterministically.
+- Support roles (read-only, edit, admin) to control who can view, update, and configure workflows.
+- Allow admins to modify workflows via configuration (YAML) instead of code.
 
 ## In Scope (POC)
-- Self-hosted CopilotKit integration (no public cloud API keys):
-  - Next.js UI with `CopilotKit` provider using `runtimeUrl="/api/copilotkit"`.
-  - Next.js API route hosting `@copilotkit/runtime` with `OpenAIAdapter` (server-only `OPENAI_API_KEY`).
-- YAML-driven composable_onboardings (file-based, editable by business users):
-  - YAML schema: steps, required_fields, and `next` transitions with simple expressions.
-  - Loader + interpreter compiles to a runtime machine (step map, initial step, helpers).
-  - API: `GET /api/composable_onboardings?client_type=...&jurisdiction=...` returns compiled machine.
-- Decoupled Actions & UI (component registry):
-  - Actions declare intent and parameters.
-  - UI rendering selected via `componentId` in action parameters, resolved through a registry mapping.
+- Self-hosted CopilotKit runtime in Next.js (no cloud keys), with `runtimeUrl="/api/copilotkit"` and server-only key management.
+- YAML-driven onboarding definitions editable by admins/business users:
+  - Steps with required fields, stage membership, and `next` transitions using simple expressions.
+  - Loader + interpreter compile YAML to a runtime machine (initial step, step index, helpers).
+- Deterministic task/stage progression:
+  - Completing all tasks in a stage advances to the next stage; failures can revert or branch per YAML `conditions`.
+- Decoupled actions and UI via a component registry:
+  - Actions declare intent; `componentId` selects UI at render time.
   - Required fields enforcement blocks transitions until satisfied.
+- Role-based access (P1 design, P0 guardrails):
+  - Read-only can view clients, stages, and task status.
+  - Edit-role can update task fields and mark complete.
+  - Admin can author YAML templates and client-specific overrides.
 
 ## Out of Scope (POC)
-- Governance and approvals (draft/publish lifecycles).
-- Full audit trails, observability dashboards, rollouts.
-- Production-grade auth, security hardening, scalability concerns.
-- Advanced rule engines, vector search; any non-essential integrations.
+- Multi-user real-time collaboration and shared session state.
+- Persistent DB backend (files are acceptable for POC).
+- Full audit trail, observability dashboards, rollout/backout automation.
+- Advanced rule engines, vector search, or third-party integrations beyond minimal stubs.
+- Production-grade SSO/RBAC (documented design only for P1).
 
-## User Stories (POC)
-- As a Program Manager, I can edit YAML files to define steps, required fields, and transitions; changes reflect without code changes.
-- As a Specialist, I see the next step and missing fields; completing fields triggers deterministic transitions.
-- As a Developer, I can map an action intent to a component via a registry, not hardcoded in the action.
+## User Stories (Primary)
+- Read-only user: “As a read-only user, I want to view the client profile and current onboarding status, so I can track progress.”
+- Edit-role user: “As an edit-role user, I want to update onboarding tasks and required fields so that the workflow automatically advances when complete.”
+- Admin user: “As an admin, I want to modify workflow templates, tasks, and client types via configuration so the system adapts to different onboarding needs.”
+- Developer: “As a developer, I want actions decoupled from UI via a registry so I can reuse logic across multiple components.”
 
-## Functional Requirements (POC)
-- YAML schema supports:
-  - steps: `id`, `task_ref`, `required_fields`, and `next` with `conditions[]` (simple expressions) and `default`.
-  - top-level `applies_to` with `client_type` and `jurisdictions` for composable_onboarding selection.
-- Loader and engine:
-  - loads YAML files, selects applicable composable_onboarding by profile, compiles `RuntimeMachine`.
-  - helper functions: `missingRequiredFields(step, inputs)`, `nextStepId(step, inputs)`.
-- API:
-  - `GET /api/composable_onboardings?client_type=...&jurisdiction=...` returns `RuntimeMachine` JSON with `initialStepId` and `stepIndexById`.
-- UI integration (decoupled):
-  - Actions take a `componentId` and `payload`.
-  - A component registry maps `componentId` → React component; actions do not directly import UI components.
-  - Progression uses engine helpers and blocks until `required_fields` are satisfied.
+Acceptance (P0):
+- YAML updates reflect at runtime without redeploy; example templates for institutional/SMA included.
+- `missingRequiredFields` and `nextStepId` compute gating and transitions deterministically.
+- At least two steps render distinct components via the registry.
+
+## Functional Requirements
+F1 Client view (existing): Display key client fields (name/type/status) and assigned tasks per stage.
+F2 Task progress (P0): Edit-role users can update, complete, or reopen tasks; gating enforced by required fields.
+F3 Workflow progression (P0): When all tasks in a stage are complete, transition to the next stage; handle failure branches per YAML.
+F4 Role-based access (P1 design, P0 guardrails): Enforce read-only vs. edit vs. admin capabilities.
+F5 Template management (P1): Admins can define templates (baseline + client-specific overrides) as YAML; stored under version control.
+F6 Audit trail (P2): Optional logging of who changed what and when.
+
+YAML schema (P0):
+- Top-level `applies_to` with `client_type` and optional `jurisdictions` to select definitions.
+- `steps[]`: `id`, `stage`, `task_ref`, `required_fields[]`.
+- `next`: `conditions[]` with simple operators (==, !=, >, >=, <, <=) and `default`.
+
+Engine/loader (P0):
+- Select applicable definition by profile; compile to `RuntimeMachine` (e.g., `initialStepId`, `stepIndexById`).
+- Provide helpers `missingRequiredFields(step, inputs)` and `nextStepId(step, inputs)`.
+
+UI integration (P0):
+- Actions accept `componentId` and `payload`; a registry resolves `componentId → React component`.
+- Progression is driven by engine helpers; UI cannot advance when required fields are missing.
+
+Reference workflows (examples from DOCX, for test data):
+- Institutional: Stages for Client Information, Account Setup, Compliance Review, Finalization with representative tasks (KYC, corporate docs, AML checks, W8/W9, activation).
+- SMA: Stages for Initial Setup, Custodian Integration, Activation (contact details, portfolio guidelines, custodian account, holding file template, test trade cycle).
 
 ## Non-Functional Requirements
-Deferred. POC prioritizes functionality only.
+- P0 single-user focus; acceptable page-to-page response < 1s for typical operations.
+- Deterministic behavior: identical inputs → identical transitions; no latent LLM state required for progression.
+- Self-hosted runtime; no dependency on public Copilot Cloud keys.
+- P1: Introduce RBAC and persistent storage; plan for concurrency and basic auditability.
 
 ## API Contracts (POC)
 ```yaml
 openapi: 3.1.0
 info:
-  title: Composable Onboarding API
+  title: Composable Onboarding API (POC)
   version: 0.1.0
 paths:
   /composable_onboardings:
     get:
-      summary: List published composable_onboardings
-  /composable_onboardings/{composable_onboarding_id}:
+      summary: List onboarding templates (YAML-backed)
+  /composable_onboardings/compiled:
     get:
-      summary: Retrieve composable_onboarding definition including tasks and segment rules
+      summary: Compile onboarding for profile (client_type, jurisdiction)
   /clients/{client_id}/state:
     get:
-      summary: Fetch client composable_onboarding state and pending tasks
+      summary: Fetch client onboarding state and pending tasks
     post:
-      summary: Update client task progress or transition state
-  /composable_onboarding-drafts:
-    post:
-      summary: Create or update composable_onboarding drafts for review
-  /composable_onboarding-drafts/{draft_id}/submit:
-    post:
-      summary: Submit draft for approval
+      summary: Update task values and recompute next step
 ```
 
-## Success Metrics (POC)
-- YAML edits reflected at runtime without code changes.
-- Required fields enforcement prevents invalid transitions.
-- Action/UI decoupling verified with at least two components via registry.
+## Success Metrics
+- YAML edits reflect in the UI without code changes (reload only).
+- Required fields gating prevents invalid transitions 100% of the time in POC test flows.
+- Two or more steps render through different components using the registry.
+- Roles respected per P0 guardrails (read-only vs. edit actions visible/enabled appropriately).
 
 ## Risk Assessment
-POC scope intentionally limits complexity; rule grammar and UI registry are kept simple to reduce risk.
+- Expression complexity: keep operators limited in P0; expand later with validation.
+- Authoring errors: provide example YAMLs and minimal schema validation with helpful messages.
+- Coupling regression: enforce component registry in code review and tests.
+- Streamlit POC deltas: prior limitations (re-runs, state reset) mitigated by moving to Next.js + CopilotKit.
 
 ## Open Questions
-- When to introduce a basic admin UI for YAML authoring.
-- Which additional expression operators are most valuable next.
+- Typical role definitions (business wants TBD in DOCX) and mapping to org permissions.
+- Minimal admin UI scope vs. editing YAML directly in POC.
+- Migration path to persistent backend and multi-user concurrency.
+- Governance needs (draft/publish/rollback) and owners/timelines.
