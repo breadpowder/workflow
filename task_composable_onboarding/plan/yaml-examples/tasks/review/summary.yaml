@@ -1,0 +1,52 @@
+id: task_review_summary
+name: Review and Submit
+description: Review all collected information before final submission
+version: 1
+
+component_id: review-summary
+
+schema:
+  sections:
+    - id: contact_info
+      title: "Contact Information"
+      fields:
+        - legal_name
+        - entity_type
+        - jurisdiction
+        - business_email
+        - business_phone
+        - full_name
+        - date_of_birth
+        - email
+        - phone
+
+    - id: documents
+      title: "Uploaded Documents"
+      fields:
+        - business_registration
+        - tax_id
+        - proof_of_address
+        - beneficial_ownership
+        - government_id
+
+    - id: due_diligence
+      title: "Due Diligence"
+      fields:
+        - source_of_funds
+        - business_purpose
+        - expected_transaction_volume
+        - politically_exposed
+        - pep_details
+        - high_risk_countries
+        - high_risk_countries_details
+
+  allowEdit: true                        # Allow users to go back and edit
+  submitLabel: "Submit Application"
+  editLabel: "Edit"
+
+expected_output_fields: []               # Review task doesn't collect new data
+
+tags:
+  - review
+  - summary
+  - confirmation

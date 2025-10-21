@@ -1,0 +1,64 @@
+id: task_documents_corporate
+name: Corporate Document Upload
+description: Upload required documents for corporate entity verification
+version: 1
+
+component_id: document-upload
+
+schema:
+  documents:
+    - id: business_registration
+      label: "Certificate of Incorporation"
+      description: "Official registration document from government authority"
+      required: true
+      acceptedTypes:
+        - application/pdf
+      maxSize: 10485760  # 10MB
+      helpText: "Must be a clear, legible copy of your incorporation certificate from the Secretary of State or equivalent authority"
+
+    - id: tax_id
+      label: "Tax Identification Number (TIN/EIN) Document"
+      description: "Official document showing business tax ID"
+      required: true
+      acceptedTypes:
+        - application/pdf
+        - image/jpeg
+        - image/png
+      maxSize: 5242880  # 5MB
+      helpText: "IRS Form SS-4 confirmation, CP 575 notice, or equivalent tax document showing your EIN"
+
+    - id: proof_of_address
+      label: "Proof of Business Address"
+      description: "Utility bill or lease agreement showing business location"
+      required: true
+      acceptedTypes:
+        - application/pdf
+        - image/jpeg
+        - image/png
+      maxSize: 5242880  # 5MB
+      helpText: "Must be dated within the last 3 months. Acceptable documents: utility bill, lease agreement, or bank statement showing business address"
+
+    - id: beneficial_ownership
+      label: "Beneficial Ownership Declaration"
+      description: "List of individuals owning 25% or more of the company"
+      required: false
+      acceptedTypes:
+        - application/pdf
+      maxSize: 5242880  # 5MB
+      helpText: "Required for corporations with beneficial owners owning ≥25%. Use FinCEN Form or equivalent."
+      visible: "entity_type == 'corporation'"
+
+  allowMultiple: true
+  uploadLabel: "Upload Corporate Documents"
+
+expected_output_fields:
+  - business_registration
+  - tax_id
+  - proof_of_address
+  - beneficial_ownership
+
+tags:
+  - documents
+  - corporate
+  - compliance
+  - kyc

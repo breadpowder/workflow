@@ -1,0 +1,38 @@
+id: task_contact_info_base
+name: Contact Information (Base)
+description: Base task for collecting contact information - defines common email and phone fields
+version: 1
+
+component_id: form
+
+schema:
+  fields:
+    # Common field: Email
+    - name: email
+      label: "Email Address"
+      type: email
+      required: true
+      placeholder: "email@example.com"
+      helpText: "Primary email address for communication"
+      validation:
+        pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+
+    # Common field: Phone
+    - name: phone
+      label: "Phone Number"
+      type: tel
+      required: true
+      placeholder: "+1 (555) 123-4567"
+      helpText: "Primary contact phone number"
+      validation:
+        pattern: "^\\+?[1-9]\\d{1,14}$"
+
+  layout: single-column
+
+expected_output_fields:
+  - email
+  - phone
+
+tags:
+  - contact-info
+  - base

@@ -1,0 +1,56 @@
+{
+  "tests": [
+    {
+      "id": "AT-POC-101",
+      "story_id": "COS-POC-1",
+      "description": "Load YAML and compile runtime machine",
+      "given": "A YAML workflow definition in data/workflows",
+      "when": "The UI requests GET /api/workflows?client_type=corporate&jurisdiction=US",
+      "then": [
+        "A compiled machine is returned with initialStepId and stepIndexById",
+        "The machine corresponds to the highest version applicable workflow"
+      ],
+      "priority": "Must",
+      "status": "Pending"
+    },
+    {
+      "id": "AT-POC-102",
+      "story_id": "COS-POC-2",
+      "description": "Evaluate next step and enforce required fields",
+      "given": "A current step with required_fields and conditional next",
+      "when": "Inputs are missing or conditions are not met",
+      "then": [
+        "missingRequiredFields lists unmet fields",
+        "nextStepId honors conditions and default deterministically"
+      ],
+      "priority": "Must",
+      "status": "Pending"
+    },
+    {
+      "id": "AT-POC-103",
+      "story_id": "COS-POC-3",
+      "description": "Decouple action and UI via component registry",
+      "given": "An action with componentId and payload",
+      "when": "The action is invoked by the AI",
+      "then": [
+        "UI component is selected from registry by componentId",
+        "Action implementation does not import the component directly"
+      ],
+      "priority": "Must",
+      "status": "Pending"
+    },
+    {
+      "id": "AT-POC-104",
+      "story_id": "COS-POC-4",
+      "description": "Self-hosted CopilotKit runtime endpoint responds",
+      "given": "The Next.js API route /api/copilotkit is running",
+      "when": "The UI initializes CopilotKit with runtimeUrl=/api/copilotkit",
+      "then": [
+        "Chat connects and actions resolve through the local runtime",
+        "No public cloud API keys are required"
+      ],
+      "priority": "Must",
+      "status": "Pending"
+    }
+  ]
+}

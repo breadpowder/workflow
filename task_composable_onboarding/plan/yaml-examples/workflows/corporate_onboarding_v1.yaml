@@ -1,0 +1,51 @@
+id: wf_corporate_v1
+name: Corporate Onboarding v1
+version: 1
+description: Complete onboarding workflow for corporate entities in US, Canada, and UK
+
+applies_to:
+  client_type: corporate
+  jurisdictions: ["US", "CA", "GB"]
+
+steps:
+  # Step 1: Collect corporate contact information
+  - id: collectContactInfo
+    task_ref: contact_info/corporate     # Reference to task definition
+    required_fields:
+      - legal_name
+      - entity_type
+      - jurisdiction
+      - business_email
+      - business_phone
+    next:
+      default: collectDocuments
+
+  # Step 2: Collect business documents
+  - id: collectDocuments
+    task_ref: documents/corporate        # Reference to task definition
+    required_fields:
+      - business_registration
+      - tax_id
+      - proof_of_address
+    next:
+      conditions:
+        - when: "risk_score > 70"
+          then: enhancedDueDiligence
+      default: review
+
+  # Step 3: Enhanced Due Diligence (conditional - only if risk_score > 70)
+  - id: enhancedDueDiligence
+    task_ref: due_diligence/enhanced     # Reference to task definition
+    required_fields:
+      - source_of_funds
+      - business_purpose
+      - expected_transaction_volume
+    next:
+      default: review
+
+  # Step 4: Review and submit
+  - id: review
+    task_ref: review/summary             # Reference to task definition
+    required_fields: []
+    next:
+      default: END

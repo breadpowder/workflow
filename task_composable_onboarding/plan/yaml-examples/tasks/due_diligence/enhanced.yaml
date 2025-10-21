@@ -1,0 +1,111 @@
+id: task_due_diligence_enhanced
+name: Enhanced Due Diligence Questionnaire
+description: Additional information required for high-risk clients (risk_score > 70)
+version: 1
+
+component_id: form
+
+schema:
+  fields:
+    - name: source_of_funds
+      label: "Source of Funds"
+      type: textarea
+      required: true
+      placeholder: "Describe the origin of funds that will be used..."
+      helpText: "Please provide a detailed explanation of where the funds originate (e.g., business revenue, investments, inheritance, salary)"
+      validation:
+        minLength: 50
+        maxLength: 1000
+
+    - name: business_purpose
+      label: "Purpose of Business Relationship"
+      type: textarea
+      required: true
+      placeholder: "Describe the intended use of our services..."
+      helpText: "Explain what you intend to use our services for and the nature of expected transactions"
+      validation:
+        minLength: 50
+        maxLength: 1000
+
+    - name: expected_transaction_volume
+      label: "Expected Monthly Transaction Volume"
+      type: select
+      required: true
+      helpText: "Estimated total value of transactions per month"
+      options:
+        - value: low
+          label: "Low (< $10,000/month)"
+        - value: medium
+          label: "Medium ($10,000 - $100,000/month)"
+        - value: high
+          label: "High ($100,000 - $1,000,000/month)"
+        - value: very_high
+          label: "Very High (> $1,000,000/month)"
+
+    - name: politically_exposed
+      label: "Are you or any beneficial owner a Politically Exposed Person (PEP)?"
+      type: select
+      required: true
+      helpText: "A PEP is someone who holds or has held a prominent public position"
+      options:
+        - value: "no"
+          label: "No"
+        - value: "yes_current"
+          label: "Yes - Currently in office"
+        - value: "yes_former"
+          label: "Yes - Formerly in office (within last 12 months)"
+        - value: "yes_family"
+          label: "Yes - Immediate family member of PEP"
+
+    - name: pep_details
+      label: "PEP Details"
+      type: textarea
+      required: false
+      visible: "politically_exposed != 'no'"
+      placeholder: "Please provide details about the position held..."
+      helpText: "Describe the position, organization, and dates of service"
+      validation:
+        minLength: 20
+        maxLength: 500
+
+    - name: high_risk_countries
+      label: "Do you have business operations or transactions in high-risk countries?"
+      type: select
+      required: true
+      helpText: "High-risk countries include those with weak AML controls or sanctions"
+      options:
+        - value: "no"
+          label: "No"
+        - value: "yes"
+          label: "Yes"
+
+    - name: high_risk_countries_details
+      label: "High-Risk Country Details"
+      type: textarea
+      required: false
+      visible: "high_risk_countries == 'yes'"
+      placeholder: "List countries and nature of business..."
+      helpText: "Specify which countries and the nature of business conducted"
+      validation:
+        minLength: 20
+        maxLength: 500
+
+  layout: single-column
+  submitLabel: "Submit EDD Information"
+  cancelLabel: "Save for Later"
+
+expected_output_fields:
+  - source_of_funds
+  - business_purpose
+  - expected_transaction_volume
+  - politically_exposed
+  - pep_details
+  - high_risk_countries
+  - high_risk_countries_details
+
+tags:
+  - due-diligence
+  - edd
+  - compliance
+  - high-risk
+  - aml

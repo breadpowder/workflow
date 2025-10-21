@@ -1,0 +1,43 @@
+id: task_documents_individual
+name: Individual Document Upload
+description: Upload required documents for individual identity verification
+version: 1
+
+component_id: document-upload
+
+schema:
+  documents:
+    - id: government_id
+      label: "Government-Issued Photo ID"
+      description: "Valid passport, driver's license, or national ID card"
+      required: true
+      acceptedTypes:
+        - application/pdf
+        - image/jpeg
+        - image/png
+      maxSize: 5242880  # 5MB
+      helpText: "Must be a clear, color copy showing your photo, name, date of birth, and expiration date. Accepted: passport, driver's license, state ID, or national ID card."
+
+    - id: proof_of_address
+      label: "Proof of Residential Address"
+      description: "Utility bill, bank statement, or lease agreement"
+      required: true
+      acceptedTypes:
+        - application/pdf
+        - image/jpeg
+        - image/png
+      maxSize: 5242880  # 5MB
+      helpText: "Must be dated within the last 3 months and show your full name and residential address. Accepted: utility bill, bank statement, lease agreement, or government correspondence."
+
+  allowMultiple: false
+  uploadLabel: "Upload Identity Documents"
+
+expected_output_fields:
+  - government_id
+  - proof_of_address
+
+tags:
+  - documents
+  - individual
+  - kyc
+  - identity-verification

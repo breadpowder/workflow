@@ -1,0 +1,61 @@
+id: task_contact_info_individual
+name: Individual Contact Information
+description: Collect contact information for individual clients
+version: 1
+
+extends: _base/contact_info_base         # Inherit email and phone from base
+
+component_id: form
+
+schema:
+  fields:
+    # Individual-specific field: Full Name
+    - name: full_name
+      label: "Full Legal Name"
+      type: text
+      required: true
+      placeholder: "John Michael Doe"
+      helpText: "Name as it appears on government-issued ID"
+      validation:
+        minLength: 2
+        maxLength: 100
+
+    # Individual-specific field: Date of Birth
+    - name: date_of_birth
+      label: "Date of Birth"
+      type: date
+      required: true
+      helpText: "Must be 18 years or older"
+      validation:
+        max: "today-18years"
+        min: "today-120years"
+
+    # email and phone inherited from base (with original names)
+
+    # Individual-specific field: SSN (Last 4 digits)
+    - name: ssn
+      label: "Social Security Number (Last 4 digits)"
+      type: text
+      required: true
+      placeholder: "1234"
+      helpText: "For identity verification purposes only. We only collect the last 4 digits."
+      validation:
+        pattern: "^\\d{4}$"
+        minLength: 4
+        maxLength: 4
+
+  layout: single-column
+  submitLabel: "Continue"
+  cancelLabel: "Save Draft"
+
+expected_output_fields:
+  - full_name
+  - date_of_birth
+  - email
+  - phone
+  - ssn
+
+tags:
+  - contact-info
+  - individual
+  - kyc

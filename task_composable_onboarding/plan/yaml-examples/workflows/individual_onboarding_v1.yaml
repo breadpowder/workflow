@@ -1,0 +1,37 @@
+id: wf_individual_v1
+name: Individual Onboarding v1
+version: 1
+description: Complete onboarding workflow for individual clients
+
+applies_to:
+  client_type: individual
+  jurisdictions: ["US", "CA", "GB"]
+
+steps:
+  # Step 1: Collect individual contact information
+  - id: collectContactInfo
+    task_ref: contact_info/individual    # Reference to task definition
+    required_fields:
+      - full_name
+      - date_of_birth
+      - email
+      - phone
+      - ssn
+    next:
+      default: collectDocuments
+
+  # Step 2: Collect identity documents
+  - id: collectDocuments
+    task_ref: documents/individual       # Reference to task definition
+    required_fields:
+      - government_id
+      - proof_of_address
+    next:
+      default: review
+
+  # Step 3: Review and submit
+  - id: review
+    task_ref: review/summary             # Reference to task definition
+    required_fields: []
+    next:
+      default: END
