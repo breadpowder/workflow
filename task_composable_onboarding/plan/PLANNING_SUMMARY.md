@@ -12,28 +12,38 @@ This document provides a concise summary of the planning phase for the Composabl
 
 ## Core Architecture
 
-### The Three-Part Pattern
+### The Four-Layer Pattern
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ 1. YAML Workflows (Business Logic)                     │
+│ 1. YAML Workflows (Orchestration Logic)                │
 │    - Define workflow steps and transitions             │
-│    - Specify component_id (which UI to render)         │
-│    - Specify schema (field definitions)                │
-│    - Business users can edit without code changes      │
+│    - Reference tasks via task_ref                      │
+│    - Specify required_fields and conditions            │
+│    - NO schemas (delegated to task files)              │
+│    Files: data/workflows/*.yaml                        │
 └─────────────────────────────────────────────────────────┘
                         ↓
 ┌─────────────────────────────────────────────────────────┐
-│ 2. Component Registry (Lookup Table)                   │
+│ 2. Task Definitions (Ground Truth Schemas)             │
+│    - Define field schemas (canonical)                  │
+│    - Validation rules and component config             │
+│    - Support inheritance (extends base tasks)          │
+│    - Reusable across multiple workflows                │
+│    Files: data/tasks/**/*.yaml                         │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│ 3. Component Registry (Lookup Table)                   │
 │    - Maps component_id → React component               │
-│    - Developers control available components           │
-│    - Small, focused registry (5-10 components)         │
+│    - Lean registry (3-5 generic components)            │
+│    - Receives resolved schemas from loader             │
 └─────────────────────────────────────────────────────────┘
                         ↓
 ┌─────────────────────────────────────────────────────────┐
-│ 3. Generic UI Components (Schema-Driven)               │
-│    - Render based on schema from YAML                  │
-│    - One component = many use cases                    │
+│ 4. Generic UI Components (Schema-Driven)               │
+│    - Render based on resolved schema                   │
+│    - One component = unlimited variations              │
 │    - Examples: form, document-upload, data-table       │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -50,6 +60,76 @@ Instead of creating `individual-contact-form`, `corporate-contact-form`, `trust-
 - Business users control field definitions via YAML
 - Add new entity types in minutes (not hours)
 - Single source of truth for behavior
+
+### Key Innovation: Two-Level YAML Architecture
+
+**Principle**: Separation of Concerns - Workflows vs. Tasks
+
+Instead of embedding schemas in workflow files...
+→ Separate into workflow files (orchestration) + task files (ground truth schemas)
+
+**Two Levels**:
+
+**Level 1 - Workflow Files** (`data/workflows/*.yaml`):
+- Orchestration logic: WHAT to do, WHEN to do it, WHERE to go next
+- Task references: `task_ref: contact_info/corporate`
+- Transitions and conditions
+- NO schemas (clean, 30-50 lines)
+
+**Level 2 - Task Files** (`data/tasks/**/*.yaml`):
+- Field schemas: Ground truth definitions
+- Validation rules and component configuration
+- Inheritance support: `extends: _base/contact_info_base`
+- Reusable across multiple workflows
+
+**Benefits**:
+- **Single source of truth**: Task files are canonical schema definitions
+- **Reusability**: Same task used across multiple workflows
+- **Maintainability**: Update schema once, affects all workflows
+- **Inheritance**: Base tasks define common fields, specific tasks extend
+- **Workflow simplicity**: 85% reduction in workflow file size (200 lines → 30 lines)
+- **Ground truth management**: Clear separation of orchestration vs. data collection
+
+**Example**:
+
+```yaml
+# Workflow file (workflows/corporate_onboarding_v1.yaml)
+steps:
+  - id: collectContactInfo
+    task_ref: contact_info/corporate      # Reference to task
+    required_fields: [legal_name, entity_type]
+
+# Task file (tasks/contact_info/corporate.yaml)
+id: task_contact_info_corporate
+extends: _base/contact_info_base          # Inherits email/phone
+component_id: form
+schema:
+  fields:
+    - name: legal_name
+      label: "Legal Business Name"
+      type: text
+      required: true
+      # ... complete schema definition
+```
+
+**Directory Structure**:
+```
+data/
+├── workflows/                   # Orchestration
+│   ├── corporate_onboarding_v1.yaml
+│   └── individual_onboarding_v1.yaml
+└── tasks/                       # Ground truth
+    ├── _base/                   # Base tasks
+    │   └── contact_info_base.yaml
+    ├── contact_info/
+    │   ├── corporate.yaml
+    │   └── individual.yaml
+    ├── documents/
+    │   ├── corporate.yaml
+    │   └── individual.yaml
+    └── due_diligence/
+        └── enhanced.yaml
+```
 
 ---
 
@@ -69,6 +149,7 @@ Instead of creating `individual-contact-form`, `corporate-contact-form`, `trust-
 | D10 | UI Design | Three-pane mockup | Context-rich, professional |
 | D11 | Component Organization | By pane/feature | Clear separation of concerns |
 | D12 | **Component Reusability** | **Schema-driven** | **70% code reduction, business control** |
+| D13 | **YAML Architecture** | **Two-level (workflow + task)** | **Single source of truth, reusability, inheritance** |
 
 **Full details**: See `decision-log.md`
 

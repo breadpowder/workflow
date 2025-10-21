@@ -777,6 +777,199 @@ This document includes:
 
 ---
 
+## D13: Two-Level YAML Architecture
+
+**Date:** 2025-10-21
+**Status:** ✅ Decided
+**Decision:** Decompose YAML into workflow-level (orchestration) and task-level (ground truth schemas) files
+
+**Core Principle**: Separation of Concerns
+> **Workflow files** (Level 1): Define WHAT to do, WHEN to do it, WHERE to go next
+> **Task files** (Level 2): Define HOW to collect data, WHICH fields, validation rules
+
+### The Requirement
+
+Business users need to manage workflow schemas (ground truth) separately from orchestration logic for:
+- **Reusability**: Same task definition used across multiple workflows
+- **Maintainability**: Update schema in one place, affects all workflows
+- **Single source of truth**: Task files are canonical field definitions
+- **Inheritance**: Base tasks define common fields, specific tasks extend
+
+### Options Considered
+
+#### Option A: Single-Level YAML (Inline Schemas)
+```yaml
+# Workflow file with embedded schemas
+steps:
+  - id: collectContactInfo
+    component_id: form
+    schema:                    # Schema defined inline (200+ lines)
+      fields:
+        - name: legal_name
+          label: "Business Name"
+          # ... full schema here ...
+```
+
+**Pros:**
+- Simple - everything in one file
+- No indirection
+- Easy to understand for simple workflows
+
+**Cons:**
+- Schema duplication across workflows
+- Update schema → edit N workflow files
+- No reusability
+- Workflows become 200-300 lines long
+- No inheritance support
+
+#### Option B: Two-Level YAML (Workflow + Task Files) ✅ SELECTED
+```yaml
+# Workflow file (clean, 30-50 lines)
+steps:
+  - id: collectContactInfo
+    task_ref: contact_info/corporate    # Reference to task file
+    required_fields: [legal_name, entity_type, business_email]
+
+# Task file (ground truth)
+id: task_contact_info_corporate
+extends: _base/contact_info_base        # Inherits common fields
+component_id: form
+schema:
+  fields:
+    - name: legal_name
+      label: "Legal Business Name"
+      # ... full schema definition ...
+```
+
+**Pros:**
+- Workflow files clean and focused (30-50 lines vs. 200-300)
+- Task definitions reusable across workflows
+- Single source of truth for schemas
+- Supports inheritance (base tasks)
+- Update schema once, affects all workflows
+- Clear separation: orchestration vs. data collection
+- Task library organized by category
+
+**Cons:**
+- Two-stage loading required (workflow → tasks)
+- Indirection via task_ref
+- More complex loader implementation
+- Validation needed for task references
+
+### Directory Structure
+
+```
+data/
+├── workflows/                           # Level 1: Orchestration
+│   ├── corporate_onboarding_v1.yaml
+│   ├── individual_onboarding_v1.yaml
+│   └── account_update_v1.yaml
+│
+└── tasks/                               # Level 2: Ground truth
+    ├── _base/                           # Base tasks for inheritance
+    │   ├── contact_info_base.yaml       # Common: email, phone
+    │   └── documents_base.yaml
+    ├── contact_info/
+    │   ├── corporate.yaml               # Extends base
+    │   ├── individual.yaml              # Extends base
+    │   └── trust.yaml
+    ├── documents/
+    │   ├── corporate.yaml
+    │   └── individual.yaml
+    └── due_diligence/
+        └── enhanced.yaml
+```
+
+### Task Inheritance Support
+
+**User requirement**: Support task inheritance with `extends` and `inherits`
+
+**Base Task** (`_base/contact_info_base.yaml`):
+```yaml
+id: task_contact_info_base
+schema:
+  fields:
+    - name: email
+      type: email
+      required: true
+    - name: phone
+      type: tel
+      required: true
+```
+
+**Extended Task** (`contact_info/corporate.yaml`):
+```yaml
+id: task_contact_info_corporate
+extends: _base/contact_info_base         # Inherit email/phone
+schema:
+  fields:
+    - name: legal_name                   # Add corporate field
+      type: text
+      required: true
+    - name: business_email               # Rename inherited field
+      inherits: email
+      label: "Business Email"
+```
+
+### Rationale
+
+1. **Separation of Concerns**: Workflows define business process flow; tasks define data collection schemas
+2. **Reusability**: `contact_info/corporate` used in multiple workflows (onboarding, account update, KYC review)
+3. **Single Source of Truth**: Task files are canonical. Update once, affects all workflows.
+4. **Maintainability**: Change field label/validation → edit one task file (not N workflow files)
+5. **Inheritance**: DRY principle with base tasks. Common fields (email, phone) defined once.
+6. **Ground Truth Management**: Clear separation makes schema governance easier
+
+### Implementation Impact
+
+**Workflow Loader**:
+- Two-stage loading: Load workflow → Resolve task references
+- Task inheritance resolution: Merge base task fields recursively
+- Validation: Ensure `task_ref` exists, `required_fields` match task schema
+
+**TypeScript Schemas**:
+- `WorkflowStepReference`: Step with `task_ref` (workflow level)
+- `TaskDefinition`: Complete task schema with optional `extends`
+- `WorkflowStep`: Compiled step with resolved task (runtime)
+
+**Validation Rules**:
+- Workflow level: All `task_ref` must point to existing files
+- Task level: If `extends`, base task must exist; no circular inheritance
+- Cross-level: Workflow `required_fields` must be subset of task `expected_output_fields`
+
+### Benefits
+
+**Code Reduction**:
+- Workflow file size: 200-300 lines → 30-50 lines (85% reduction)
+- Schema duplication: N copies → 1 canonical definition
+
+**Maintainability**:
+- Update schema: Edit 1 file (task) instead of N files (workflows)
+- Add validation rule: One place, affects all usages
+
+**Business Impact**:
+- Task library browsable: Organized by category in `data/tasks/`
+- Ground truth clear: Task files are definitive source
+- Workflow authoring easier: Just reference existing tasks
+
+**Developer Experience**:
+- Workflows readable: Focus on flow, not schemas
+- Tasks focused: Pure schema definitions
+- Testing easier: Test workflows and tasks separately
+
+### Reference Documentation
+
+Complete specification: `task_composable_onboarding/plan/two-level-yaml-architecture.md`
+
+This document includes:
+- Complete schema definitions (workflow + task)
+- Task inheritance algorithm
+- Validation rules (workflow, task, cross-level)
+- Example YAML files (8 files: workflows + tasks)
+- Migration guide from single-level
+
+---
+
 ## Summary of Key Decisions
 
 | Decision | Chosen Option | Impact |
@@ -794,6 +987,7 @@ This document includes:
 | **Color Scheme** | **Professional Financial** | **Trustworthy, modern, accessible** |
 | **Styling** | **Tailwind CSS** | **Precision, consistency, performance** |
 | **Component Reusability** | **Schema-driven components** | **70% code reduction, business user control** |
+| **YAML Architecture** | **Two-level (workflow + task)** | **Single source of truth, reusability, inheritance** |
 
 **Total Estimated Implementation Time:** ~18 hours (increased to account for UI implementation)
 
