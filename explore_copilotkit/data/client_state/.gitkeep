@@ -1,0 +1,2 @@
+# This file ensures the client_state directory is tracked by git
+# Actual client state JSON files are git-ignored

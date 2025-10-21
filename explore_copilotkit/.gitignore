@@ -44,3 +44,7 @@ next-env.d.ts
 # OS
 .DS_Store
 Thumbs.db
+
+# Client state (POC - file-based storage)
+data/client_state/*.json
+data/client_state/*.tmp
