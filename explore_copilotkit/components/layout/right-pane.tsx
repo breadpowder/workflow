@@ -17,16 +17,18 @@ export function RightPane({ children, className }: RightPaneProps) {
   return (
     <aside
       className={clsx(
-        // Fixed width and border
-        'w-[476px] border-l border-gray-200',
+        // Fixed width (flex-shrink-0 prevents shrinking)
+        'w-[476px] flex-shrink-0',
+        // Border
+        'border-l border-gray-200',
         // Layout
         'flex flex-col',
         // No scrolling on container (children control their own)
         'overflow-hidden',
         // Background
         'bg-gray-50',
-        // Responsive: hidden on mobile, visible on desktop
-        'hidden lg:flex',
+        // Full height
+        'h-full',
         className
       )}
     >

@@ -28,12 +28,14 @@ export function ThreePaneLayout({
   return (
     <div
       className={clsx(
-        // Horizontal flex layout
-        'flex',
+        // Horizontal flex layout (explicit)
+        'flex flex-row',
         // Full viewport height
         'h-screen',
         // Prevent overflow
         'overflow-hidden',
+        // Background for visibility
+        'bg-gray-100',
         className
       )}
     >

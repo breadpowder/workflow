@@ -17,12 +17,16 @@ export function MiddlePane({ children, className }: MiddlePaneProps) {
   return (
     <main
       className={clsx(
-        // Flexible width
+        // Flexible width (grows to fill remaining space)
         'flex-1',
+        // Prevent shrinking
+        'flex-shrink-0',
         // Scrolling
         'overflow-y-auto',
         // Background
         'bg-white',
+        // Full height
+        'h-full',
         className
       )}
     >
