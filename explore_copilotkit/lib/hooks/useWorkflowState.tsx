@@ -156,8 +156,15 @@ export function useWorkflowState(
       }
 
       const data = await response.json();
-      setMachine(data);
-      return data as RuntimeMachine;
+
+      // Convert stepIndexById from object back to Map (lost during JSON serialization)
+      const machine: RuntimeMachine = {
+        ...data,
+        stepIndexById: new Map(Object.entries(data.stepIndexById)),
+      };
+
+      setMachine(machine);
+      return machine;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error loading workflow';
       setError(errorMsg);

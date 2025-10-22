@@ -16,17 +16,26 @@ export function GenericForm({
   inputs,
   onInputChange,
   onSubmit,
-  requiredFields,
+  requiredFields = [],
   isProcessing = false,
   error,
 }: RegistryComponentProps) {
+  // Handle missing or invalid schema
+  if (!schema || !schema.fields || !Array.isArray(schema.fields)) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
+        <p className="text-danger">Invalid form schema</p>
+      </div>
+    );
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit();
   };
 
   const isFieldRequired = (fieldName: string) => {
-    return requiredFields.includes(fieldName);
+    return requiredFields && requiredFields.includes(fieldName);
   };
 
   const renderField = (field: any) => {

@@ -255,6 +255,16 @@ export function getWorkflowProgress(
   remaining: number;
   percentage: number;
 } {
+  // Handle missing steps array
+  if (!machine || !machine.steps || !Array.isArray(machine.steps)) {
+    return {
+      total: 0,
+      completed: 0,
+      remaining: 0,
+      percentage: 0,
+    };
+  }
+
   const total = machine.steps.length;
   const completed = completedSteps.length;
   const remaining = total - completed;
@@ -291,6 +301,11 @@ export function getStageProgress(
   completed: number;
   percentage: number;
 }> {
+  // Handle missing stages array
+  if (!machine.stages || !Array.isArray(machine.stages)) {
+    return [];
+  }
+
   const completedSet = new Set(completedSteps);
 
   return machine.stages.map((stage) => {
