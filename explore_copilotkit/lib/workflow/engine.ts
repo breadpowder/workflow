@@ -523,3 +523,232 @@ export function evaluateConditions(
 
   return null;
 }
+
+/**
+ * State Transition Logic
+ *
+ * Determines the next step in the workflow based on current step and inputs.
+ * Supports conditional branching via expression evaluation.
+ */
+
+/**
+ * Determine the next step ID based on current step and inputs
+ *
+ * @param step - Current workflow step
+ * @param inputs - Current input values
+ * @returns Next step ID or 'END'
+ *
+ * @example
+ * // With conditions
+ * const step = {
+ *   id: 'checkRevenue',
+ *   next: {
+ *     conditions: [
+ *       { when: "input.revenue > 1000000", then: "highValuePath" },
+ *       { when: "input.revenue <= 1000000", then: "standardPath" }
+ *     ],
+ *     default: "standardPath"
+ *   }
+ * };
+ * const nextId = nextStepId(step, { revenue: 2000000 });
+ * // Returns: "highValuePath"
+ *
+ * @example
+ * // Without conditions (default transition)
+ * const step = {
+ *   id: 'collectInfo',
+ *   next: {
+ *     default: "review"
+ *   }
+ * };
+ * const nextId = nextStepId(step, {});
+ * // Returns: "review"
+ */
+export function nextStepId(
+  step: CompiledWorkflowStep,
+  inputs: Record<string, any>
+): string {
+  // Check if step has conditional transitions
+  if (step.next.conditions && step.next.conditions.length > 0) {
+    const matchedCondition = evaluateConditions(step.next.conditions, inputs);
+
+    if (matchedCondition) {
+      return matchedCondition.then;
+    }
+  }
+
+  // Fall back to default transition
+  return step.next.default;
+}
+
+/**
+ * Validate that a transition target exists in the workflow
+ *
+ * @param machine - Compiled runtime machine
+ * @param targetStepId - Target step ID to validate
+ * @returns True if transition is valid, false otherwise
+ *
+ * @example
+ * const isValid = isValidTransition(machine, 'review');
+ * // Returns: true if 'review' step exists or is 'END'
+ */
+export function isValidTransition(
+  machine: RuntimeMachine,
+  targetStepId: string
+): boolean {
+  // 'END' is always valid
+  if (targetStepId === 'END') {
+    return true;
+  }
+
+  // Check if target step exists
+  return hasStep(machine, targetStepId);
+}
+
+/**
+ * Get all possible next step IDs from current step
+ *
+ * @param step - Current workflow step
+ * @returns Array of all possible next step IDs (including conditional paths)
+ *
+ * @example
+ * const step = {
+ *   next: {
+ *     conditions: [
+ *       { when: "input.x > 10", then: "pathA" },
+ *       { when: "input.x <= 10", then: "pathB" }
+ *     ],
+ *     default: "pathC"
+ *   }
+ * };
+ * const possibleNext = getPossibleNextSteps(step);
+ * // Returns: ["pathA", "pathB", "pathC"]
+ */
+export function getPossibleNextSteps(step: CompiledWorkflowStep): string[] {
+  const possibleSteps: string[] = [];
+
+  // Add conditional paths
+  if (step.next.conditions) {
+    for (const condition of step.next.conditions) {
+      if (!possibleSteps.includes(condition.then)) {
+        possibleSteps.push(condition.then);
+      }
+    }
+  }
+
+  // Add default path if not already included
+  if (!possibleSteps.includes(step.next.default)) {
+    possibleSteps.push(step.next.default);
+  }
+
+  return possibleSteps;
+}
+
+/**
+ * Check if workflow can transition from current step
+ *
+ * @param step - Current workflow step
+ * @param inputs - Current input values
+ * @returns Validation result with canTransition flag and reason
+ *
+ * @example
+ * const result = canTransitionFrom(step, inputs);
+ * if (!result.canTransition) {
+ *   console.error('Cannot transition:', result.reason);
+ * }
+ */
+export function canTransitionFrom(
+  step: CompiledWorkflowStep,
+  inputs: Record<string, any>
+): { canTransition: boolean; reason?: string } {
+  // Check required fields
+  const validation = validateStepInputs(step, inputs);
+  if (!validation.valid) {
+    return {
+      canTransition: false,
+      reason: `Validation failed: ${validation.errors.join(', ')}`,
+    };
+  }
+
+  // All checks passed
+  return { canTransition: true };
+}
+
+/**
+ * Execute a state transition and return the next step
+ *
+ * @param machine - Compiled runtime machine
+ * @param currentStep - Current workflow step
+ * @param inputs - Current input values
+ * @returns Object with next step or END marker, and transition info
+ *
+ * @example
+ * const result = executeTransition(machine, currentStep, inputs);
+ * if (result.nextStep === null) {
+ *   console.log('Workflow completed');
+ * } else {
+ *   console.log('Next step:', result.nextStep.id);
+ * }
+ */
+export function executeTransition(
+  machine: RuntimeMachine,
+  currentStep: CompiledWorkflowStep,
+  inputs: Record<string, any>
+): {
+  nextStep: CompiledWorkflowStep | null;
+  nextStepId: string;
+  isEnd: boolean;
+  transitionReason?: string;
+} {
+  // Check if transition is allowed
+  const canTransition = canTransitionFrom(currentStep, inputs);
+  if (!canTransition.canTransition) {
+    throw new Error(
+      `Cannot transition from step "${currentStep.id}": ${canTransition.reason}`
+    );
+  }
+
+  // Determine next step ID
+  const nextId = nextStepId(currentStep, inputs);
+
+  // Check if workflow is complete
+  if (nextId === 'END') {
+    return {
+      nextStep: null,
+      nextStepId: 'END',
+      isEnd: true,
+      transitionReason: 'Workflow completed',
+    };
+  }
+
+  // Validate transition target exists
+  if (!isValidTransition(machine, nextId)) {
+    throw new Error(
+      `Invalid transition from step "${currentStep.id}" to "${nextId}": target step does not exist`
+    );
+  }
+
+  // Get next step
+  const nextStep = getStepById(machine, nextId);
+  if (!nextStep) {
+    throw new Error(
+      `Failed to retrieve step "${nextId}" after validation passed`
+    );
+  }
+
+  // Determine transition reason (which condition matched, or default)
+  let transitionReason = 'default transition';
+  if (currentStep.next.conditions && currentStep.next.conditions.length > 0) {
+    const matched = evaluateConditions(currentStep.next.conditions, inputs);
+    if (matched) {
+      transitionReason = `condition matched: ${matched.when}`;
+    }
+  }
+
+  return {
+    nextStep,
+    nextStepId: nextId,
+    isEnd: false,
+    transitionReason,
+  };
+}
