@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Test page for Task 6A & 6B: Three-Pane Layout + Client List
+ * Test page for Task 6A-6C: Three-Pane Layout + Client List + Presentation Layer
  *
  * Verifies:
  * - Three panes render side-by-side
@@ -10,18 +10,95 @@
  * - Border styling
  * - Client list with search functionality
  * - Client selection state
+ * - ProfileSection displays client info
+ * - RequiredFieldsSection shows field status
+ * - TimelineSection displays events
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ThreePaneLayout } from '@/components/layout/three-pane-layout';
 import { LeftPane } from '@/components/layout/left-pane';
 import { MiddlePane } from '@/components/layout/middle-pane';
 import { RightPane } from '@/components/layout/right-pane';
 import { ClientList } from '@/components/onboarding/client-list';
+import { ProfileSection } from '@/components/onboarding/profile-section';
+import { RequiredFieldsSection, RequiredField } from '@/components/onboarding/required-fields-section';
+import { TimelineSection, TimelineEvent } from '@/components/onboarding/timeline-section';
 import { Client } from '@/lib/mock-data/clients';
 
 export default function TestLayoutPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+
+  // Mock required fields data (for POC demonstration)
+  const requiredFields: RequiredField[] = useMemo(() => {
+    if (!selectedClient) return [];
+
+    // Different fields based on client type
+    if (selectedClient.type === 'corporate') {
+      return [
+        { name: 'company_name', label: 'Company Name', completed: true, description: 'Legal entity name' },
+        { name: 'registration_number', label: 'Registration Number', completed: true },
+        { name: 'incorporation_date', label: 'Incorporation Date', completed: false },
+        { name: 'registered_address', label: 'Registered Address', completed: false },
+        { name: 'beneficial_owners', label: 'Beneficial Owners', completed: false, description: 'UBO declaration required' },
+        { name: 'financial_statements', label: 'Financial Statements', completed: false },
+        { name: 'tax_id', label: 'Tax Identification Number', completed: true },
+      ];
+    } else {
+      return [
+        { name: 'full_name', label: 'Full Legal Name', completed: true },
+        { name: 'date_of_birth', label: 'Date of Birth', completed: true },
+        { name: 'id_document', label: 'ID Document', completed: false, description: 'Passport or national ID' },
+        { name: 'residential_address', label: 'Residential Address', completed: false },
+        { name: 'proof_of_address', label: 'Proof of Address', completed: false },
+        { name: 'source_of_funds', label: 'Source of Funds', completed: false },
+      ];
+    }
+  }, [selectedClient]);
+
+  // Mock timeline events data (for POC demonstration)
+  const timelineEvents: TimelineEvent[] = useMemo(() => {
+    if (!selectedClient) return [];
+
+    return [
+      {
+        id: '1',
+        type: 'created',
+        title: 'Client Created',
+        description: `${selectedClient.name} was added to the system`,
+        timestamp: selectedClient.createdAt,
+        user: 'System',
+      },
+      {
+        id: '2',
+        type: 'updated',
+        title: 'Profile Updated',
+        description: 'Contact information verified',
+        timestamp: selectedClient.lastActivity,
+        user: 'John Compliance',
+      },
+      {
+        id: '3',
+        type: 'review',
+        title: 'Risk Assessment',
+        description: `Risk level set to ${selectedClient.risk}`,
+        timestamp: selectedClient.lastActivity,
+        user: 'Risk Team',
+      },
+      ...(selectedClient.status === 'complete'
+        ? [
+            {
+              id: '4',
+              type: 'completed' as const,
+              title: 'Onboarding Complete',
+              description: 'All required documents verified',
+              timestamp: selectedClient.lastActivity,
+              user: 'Compliance Team',
+            },
+          ]
+        : []),
+    ];
+  }, [selectedClient]);
 
   return (
     <ThreePaneLayout
@@ -36,68 +113,20 @@ export default function TestLayoutPage() {
       middle={
         <MiddlePane>
           <div className="p-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            <h1 className="text-2xl font-bold text-gray-900 mb-6">
               Middle Pane - Client Details
             </h1>
 
             {selectedClient ? (
               <div className="space-y-6">
-                {/* Client Info Card */}
-                <div className="p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-2xl font-bold">
-                      {selectedClient.name.charAt(0)}
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-semibold">{selectedClient.name}</h2>
-                      <p className="text-sm text-gray-500">{selectedClient.email}</p>
-                    </div>
-                  </div>
+                {/* Profile Section */}
+                <ProfileSection client={selectedClient} />
 
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Type:</span>
-                      <span className="ml-2 font-medium capitalize">{selectedClient.type}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Status:</span>
-                      <span className="ml-2 font-medium capitalize">{selectedClient.status}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Risk Level:</span>
-                      <span className="ml-2 font-medium capitalize">{selectedClient.risk}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Jurisdiction:</span>
-                      <span className="ml-2 font-medium">{selectedClient.jurisdiction}</span>
-                    </div>
-                    {selectedClient.entityType && (
-                      <div>
-                        <span className="text-gray-500">Entity Type:</span>
-                        <span className="ml-2 font-medium">{selectedClient.entityType}</span>
-                      </div>
-                    )}
-                    <div>
-                      <span className="text-gray-500">Created:</span>
-                      <span className="ml-2 font-medium">{selectedClient.createdAt}</span>
-                    </div>
-                  </div>
-                </div>
+                {/* Required Fields Section */}
+                <RequiredFieldsSection fields={requiredFields} />
 
-                {/* Placeholder sections */}
-                <div className="p-6 bg-gray-50 rounded-lg border border-gray-200">
-                  <h3 className="font-semibold mb-2">Required Fields</h3>
-                  <p className="text-sm text-gray-600">
-                    Task 6C will implement the RequiredFieldsSection component here.
-                  </p>
-                </div>
-
-                <div className="p-6 bg-gray-50 rounded-lg border border-gray-200">
-                  <h3 className="font-semibold mb-2">Timeline</h3>
-                  <p className="text-sm text-gray-600">
-                    Task 6C will implement the TimelineSection component here.
-                  </p>
-                </div>
+                {/* Timeline Section */}
+                <TimelineSection events={timelineEvents} />
               </div>
             ) : (
               <div className="flex items-center justify-center h-64 text-gray-500">
