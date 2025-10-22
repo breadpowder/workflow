@@ -6,7 +6,7 @@ This document defines the design system for the composable onboarding UI based o
 ---
 
 ## Reference Mockup
-- **Source**: `/home/zineng/workspace/explore_copilotkit/onboarding-mockup-with-form.excalidraw`
+- **Source**: `/home/zineng/workspace/explore_copilotkit/mockups.png`
 - **Screenshot**: Provided in planning session
 - **Canvas Size**: 1448×900px (Desktop)
 - **Layout**: Three-pane (Clients | Presentation | Onboarding Form + Chat)

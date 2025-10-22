@@ -1,13 +1,15 @@
 # Composable Onboarding POC - Task Breakdown
 
 **Project**: Composable Onboarding Proof of Concept
-**Architecture**: Two-Level YAML + Schema-Driven Components + Self-Hosted CopilotKit + Stages + Persistence + Chat-First Overlay UI
-**Total Tasks**: 21
-- Original: 14 tasks
+**Architecture**: Two-Level YAML + Schema-Driven Components + Self-Hosted CopilotKit + Stages + Persistence + Chat-First Overlay UI + Three-Pane Layout
+**Total Tasks**: 26
+- Original: 14 tasks (Tasks 1-7)
 - Added: Task 2B (Persistence), Task 4E (Stages)
 - Added: Tasks 5F-5J (Chat-First Overlay UI: 5 tasks)
-**Total Estimated Time**: 27-29.5 hours
-**Status**: Ready for Implementation
+- Added: Tasks 6A-6E (Three-Pane Layout: 5 tasks)
+- Renumbered: Task 6 → Task 7, Task 7 → Task 8
+**Total Estimated Time**: 43-47 hours
+**Status**: Phase 1 Complete (Tasks 1-5), Phase 2 In Progress (Tasks 6A-6E)
 
 ---
 
@@ -1126,12 +1128,332 @@ Update CopilotKit `renderUI` action to trigger overlay instead of inline renderi
 
 ---
 
-## Task 6: End-to-End Integration
+## Task 6A: Three-Pane Layout Foundation
 
-**ID**: COMP-006
+**ID**: COMP-006A
+**Priority**: High
+**Estimated Time**: 2 hours
+**Dependencies**: None
+
+### Description
+
+Create the base three-pane layout structure with proper flex layout, responsive behavior, and design system styling. This establishes the foundation for the professional context-rich interface.
+
+### Objectives
+
+- Create `ThreePaneLayout` wrapper component with flex structure
+- Implement three pane containers: LeftPane, MiddlePane, RightPane
+- Apply correct widths (316px | flex-1 | 476px)
+- Implement responsive behavior (collapse on < 1024px)
+- Apply design system styling (borders, shadows, backgrounds)
+
+### Acceptance Criteria
+
+- ✅ `ThreePaneLayout` component renders three panes side-by-side
+- ✅ LeftPane has fixed width of 316px
+- ✅ MiddlePane has flex-1 (takes remaining space)
+- ✅ RightPane has fixed width of 476px
+- ✅ Full viewport height (`h-screen`) layout
+- ✅ Responsive: panes collapse on mobile/tablet (< 1024px)
+- ✅ Border styling per design system applied
+- ✅ No console errors or TypeScript warnings
+- ✅ Layout renders empty panes successfully
+
+### Files to Create
+
+- `components/layout/three-pane-layout.tsx` - Main layout wrapper
+- `components/layout/left-pane.tsx` - Left pane container (316px)
+- `components/layout/middle-pane.tsx` - Middle pane container (flex-1)
+- `components/layout/right-pane.tsx` - Right pane container (476px)
+
+### Testing Requirements
+
+- **Visual Test**: Three panes render with correct widths
+- **Responsive Test**: Test on mobile (< 768px), tablet (768-1024px), desktop (> 1024px)
+- **Component Test**: Each pane accepts children and renders correctly
+
+### Technical Notes
+
+- Use Tailwind classes: `flex h-screen overflow-hidden`
+- LeftPane: `w-[316px] border-r border-gray-200 overflow-y-auto`
+- MiddlePane: `flex-1 overflow-y-auto bg-gray-50`
+- RightPane: `w-[476px] border-l border-gray-200 overflow-hidden flex flex-col`
+- Responsive: `lg:flex hidden` for side panes, collapsible on mobile
+
+### References
+
+- design-system.md: Lines 156-176 (Three-Pane Layout Structure)
+- Decision D10: Three-Pane Layout decision
+- Decision D14: Phased Implementation approach
+
+---
+
+## Task 6B: LeftPane Client List Component
+
+**ID**: COMP-006B
+**Priority**: Medium
+**Estimated Time**: 2 hours
+**Dependencies**: Task 6A (Three-Pane Foundation)
+
+### Description
+
+Implement client list component with folder structure, search functionality, and selection state. This provides context switching between multiple clients.
+
+### Objectives
+
+- Create client list component with folder structure
+- Implement search/filter functionality
+- Add client selection state management
+- Create mock client data for POC
+- Apply folder expand/collapse behavior
+
+### Acceptance Criteria
+
+- ✅ Displays "Corporate" and "Individual" folder categories
+- ✅ Shows mock clients (Acme Corp, GreenTech Industries) under Corporate
+- ✅ Search box filters clients by name
+- ✅ Selected client highlighted with background color
+- ✅ Folder expand/collapse functionality works
+- ✅ Integrates with ThreePaneLayout LeftPane
+- ✅ Proper styling per design system (icons, spacing, typography)
+
+### Files to Create
+
+- `components/onboarding/client-list.tsx` - Main client list component
+- `components/onboarding/client-folder.tsx` - Folder component with expand/collapse
+- `lib/mock-data/clients.ts` - Mock client data for POC
+
+### Testing Requirements
+
+- **Interaction Test**: Click folder to expand/collapse
+- **Search Test**: Type in search box, verify filtering
+- **Selection Test**: Click client, verify highlight and state update
+
+### Technical Notes
+
+- Mock data structure: `{ id, name, type: 'corporate' | 'individual', status, email, risk }`
+- Use `useState` for expanded folders and selected client
+- Icons: 📁 for folders, company icon for corporate clients
+- Search: Case-insensitive filter on client name
+- Colors: Selected = `bg-blue-50`, Hover = `bg-gray-50`
+
+### References
+
+- design-system.md: LeftPane Client List specifications
+- Mockup: Left pane showing folder structure
+
+---
+
+## Task 6C: MiddlePane Presentation Layer
+
+**ID**: COMP-006C
+**Priority**: High
+**Estimated Time**: 3 hours
+**Dependencies**: Task 6A (Three-Pane Foundation)
+
+### Description
+
+Create presentation layer components for the middle pane: Profile section, Required Fields section, and Timeline section. These display workflow state and provide context during onboarding.
+
+### Objectives
+
+- Implement ProfileSection showing client info and current status
+- Implement RequiredFieldsSection with field completion status
+- Implement TimelineSection with workflow events
+- Wire all sections to workflow state data
+- Apply proper styling and icons
+
+### Acceptance Criteria
+
+- ✅ ProfileSection displays: client name, status, email, risk level, entity type, jurisdiction
+- ✅ RequiredFieldsSection shows list of required fields with ☐/☑ status icons
+- ✅ Color coding: Green (☑) for complete, Yellow (☐) for pending
+- ✅ TimelineSection displays workflow events with timestamps
+- ✅ All sections update in real-time with workflow state changes
+- ✅ Proper spacing and typography per design system
+- ✅ Integrates with ThreePaneLayout MiddlePane
+
+### Files to Create
+
+- `components/onboarding/profile-section.tsx` - Client profile display
+- `components/onboarding/required-fields-section.tsx` - Field status list
+- `components/onboarding/field-status.tsx` - Individual field status component
+- `components/onboarding/timeline-section.tsx` - Event timeline display
+- `components/onboarding/timeline-event.tsx` - Individual event component
+
+### Testing Requirements
+
+- **State Update Test**: Change workflow state, verify UI updates
+- **Field Status Test**: Complete a field, verify ☐ → ☑ transition
+- **Timeline Test**: Progress workflow, verify new events appear
+
+### Technical Notes
+
+- ProfileSection reads from `workflow.machine` and `workflow.inputs`
+- RequiredFieldsSection maps over `currentStep.required_fields`
+- Field status: Check if field exists in `workflow.inputs` (complete) or not (pending)
+- TimelineSection maintains event history in state or derives from `workflow.completedSteps`
+- Icons: ☑ (`text-success`), ☐ (`text-warning`)
+- Typography: Section headers = `text-lg font-semibold`, Body = `text-sm`
+
+### References
+
+- design-system.md: MiddlePane Presentation Layer specifications
+- Mockup: Middle pane showing Profile, Required Fields, Timeline
+- useWorkflowState hook: Provides workflow state data
+
+---
+
+## Task 6D: RightPane Chat + Form Overlay
+
+**ID**: COMP-006D
+**Priority**: High (Critical Path)
+**Estimated Time**: 4 hours
+**Dependencies**: Task 6A (Three-Pane Foundation)
+
+### Description
+
+Refactor RightPane to implement chat-first pattern with form overlay. Chat is the default full-height interface; forms appear as modal overlays when triggered by workflow.
+
+### Objectives
+
+- Create ChatSection component with message display and input
+- Create FormOverlay component for modal form rendering
+- Update RightPane to support overlay state
+- Implement overlay animations (slide-in, backdrop)
+- Add overlay state management to useWorkflowState hook
+
+### Acceptance Criteria
+
+- ✅ ChatSection displays messages (AI, user, system types)
+- ✅ Message input box fixed at bottom of chat
+- ✅ Auto-scroll to latest message on new message
+- ✅ FormOverlay slides in from right with backdrop
+- ✅ Click backdrop or ESC closes overlay
+- ✅ Form in overlay renders via component registry
+- ✅ Form submission updates workflow state and closes overlay
+- ✅ Chat dimmed (`opacity-50`) when overlay active
+- ✅ System messages show success/error with icons
+
+### Files to Create
+
+- `components/chat/chat-section.tsx` - Chat interface with messages and input
+- `components/chat/message.tsx` - Individual message component
+- `components/chat/system-message.tsx` - System message with icons
+- `components/onboarding/form-overlay.tsx` - Modal overlay for forms
+
+### Files to Modify
+
+- `lib/hooks/useWorkflowState.tsx` - Add overlay state management
+- `components/layout/right-pane.tsx` - Support chat + overlay pattern
+
+### Testing Requirements
+
+- **Chat Test**: Send message, verify it appears in list
+- **Overlay Test**: Trigger overlay, verify it opens and form renders
+- **Close Test**: Click backdrop, press ESC, verify overlay closes
+- **Submission Test**: Submit form, verify workflow state updates
+
+### Technical Notes
+
+- Overlay state: `{ visible: boolean, componentId: string | null, data: any }`
+- Chat messages: `{ role: 'ai' | 'user' | 'system', content: string, timestamp: Date, type?: 'info' | 'success' | 'error' }`
+- Overlay animations: `transition-transform duration-300 ease-in-out`
+- Backdrop: `fixed inset-0 bg-black/50 backdrop-blur-sm z-40`
+- Overlay: `fixed right-0 top-0 bottom-0 w-[600px] bg-white shadow-2xl z-50`
+- Focus trap: When overlay open, trap focus within overlay
+
+### References
+
+- design-system.md: Chat-First Overlay UI pattern
+- Mockup: Right pane showing chat interface
+- implement_plan.md: Section 2.2.8 (Chat-First Dynamic UI Architecture)
+
+---
+
+## Task 6E: Integration & Migration
+
+**ID**: COMP-006E
+**Priority**: Critical
+**Estimated Time**: 5 hours
+**Dependencies**: Tasks 6A, 6B, 6C, 6D (All three-pane components)
+
+### Description
+
+Replace single-pane onboarding page with three-pane layout, migrate form rendering to overlay pattern, and conduct comprehensive end-to-end testing. This is the final integration phase.
+
+### Objectives
+
+- Update `app/onboarding/page.tsx` to use ThreePaneLayout
+- Migrate form rendering from inline to overlay pattern
+- Wire all three panes with workflow state
+- Test complete workflow execution end-to-end
+- Perform visual QA against mockup
+- Backup current implementation before migration
+
+### Acceptance Criteria
+
+- ✅ All existing workflow features work (progression, validation, navigation)
+- ✅ Stage indicator updates correctly
+- ✅ Form submission updates collected inputs
+- ✅ Required fields validation works
+- ✅ Back/Next navigation functions properly
+- ✅ Layout matches mockup structure
+- ✅ Responsive behavior acceptable
+- ✅ No console errors or warnings
+- ✅ Complete workflow executes from start to END
+- ✅ Performance acceptable (60fps scrolling, smooth animations)
+
+### Files to Modify
+
+- `app/onboarding/page.tsx` - Replace with ThreePaneLayout
+- `lib/hooks/useWorkflowState.tsx` - Wire overlay triggers to workflow events
+
+### Files to Backup
+
+- `app/onboarding/page.tsx` → `app/onboarding/page-single-pane.tsx.backup`
+
+### Testing Requirements
+
+- **Smoke Test**: App loads without errors
+- **Workflow Test**: Complete onboarding flow from step 1 to END
+- **Validation Test**: Submit form with missing fields, verify validation
+- **Navigation Test**: Use Back/Next buttons, verify state consistency
+- **Responsive Test**: Test on mobile, tablet, desktop viewports
+- **Performance Test**: Check frame rate during scroll and animations
+- **Visual QA**: Compare with mockup, verify spacing, colors, typography
+
+### Technical Notes
+
+- Create backup: `cp app/onboarding/page.tsx app/onboarding/page-single-pane.tsx.backup`
+- Import ThreePaneLayout and pass pane content as children
+- Move StageIndicator and ProgressBar to MiddlePane
+- Move form rendering to FormOverlay triggered by workflow
+- Update useWorkflowState to call `showFormOverlay()` on step transition
+- Rollback command: `cp app/onboarding/page-single-pane.tsx.backup app/onboarding/page.tsx`
+
+### Rollback Criteria
+
+- Workflow progression stops working
+- Form validation fails
+- State management corrupts data
+- Performance below 30fps
+- Critical functionality broken
+
+### References
+
+- implement_plan.md: Section 4 (Implementation Status Update)
+- Decision D14: Risk mitigation and rollback procedures
+- ui_layout_gap_analysis.md: Complete gap analysis
+
+---
+
+## Task 7: End-to-End Integration
+
+**ID**: COMP-007
 **Priority**: High (Critical Path)
 **Estimated Time**: 1 hour
-**Dependencies**: All previous tasks (1-5E)
+**Dependencies**: All previous tasks (1-6E)
 
 ### Description
 
@@ -1193,12 +1515,12 @@ Wire all components together for end-to-end workflow execution. Connect UI to wo
 
 ---
 
-## Task 7: Documentation
+## Task 8: Documentation
 
-**ID**: COMP-007
+**ID**: COMP-008
 **Priority**: Medium
 **Estimated Time**: 1 hour
-**Dependencies**: Task 6 (Integration complete)
+**Dependencies**: Task 7 (Integration complete)
 
 ### Description
 
