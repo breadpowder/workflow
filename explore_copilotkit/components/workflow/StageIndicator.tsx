@@ -31,6 +31,11 @@ export function StageIndicator({
   currentStageId,
   stageProgress = [],
 }: StageIndicatorProps) {
+  // Handle undefined or empty stages
+  if (!stages || stages.length === 0) {
+    return null;
+  }
+
   // Create a map for quick progress lookup
   const progressMap = new Map(
     stageProgress.map((sp) => [sp.stageId, sp])
