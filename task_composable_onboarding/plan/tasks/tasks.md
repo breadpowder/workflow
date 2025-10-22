@@ -1469,12 +1469,162 @@ Refactor RightPane to implement chat-first pattern with form overlay. Chat is th
 
 ---
 
-## Task 6F: Real Workflow Integration
+## Task 6F: CSS Loading Verification & Visual QA
 
 **ID**: COMP-006F
+**Priority**: Critical
+**Estimated Time**: 30 minutes
+**Dependencies**: Task 6E (Three-pane UI structure)
+**Status**: ⏳ NOT STARTED
+
+### Description
+
+Verify that Tailwind CSS is properly configured, loading, and rendering the design system styles. This task addresses the gap identified between implemented styling and actual runtime rendering.
+
+**Issue Context**: Gap analysis revealed discrepancy between extensive Tailwind CSS code and unstyled screenshot. This task verifies CSS loading and documents actual visual state.
+
+### Objectives
+
+1. Verify Tailwind CSS configuration is correct
+2. Confirm CSS files are loading in browser
+3. Take screenshots of actual styled UI
+4. Document any CSS loading or rendering issues
+5. Compare actual vs. expected visual appearance
+
+### Acceptance Criteria
+
+**Configuration**:
+- [ ] `app/layout.tsx` imports `globals.css`
+- [ ] `globals.css` contains Tailwind directives (`@tailwind base`, `@tailwind components`, `@tailwind utilities`)
+- [ ] `tailwind.config.ts` includes correct content paths
+- [ ] `postcss.config.mjs` is properly configured
+
+**Runtime Verification**:
+- [ ] Development server starts without CSS errors
+- [ ] Browser Network tab shows `globals.css` loaded (200 OK)
+- [ ] Browser DevTools shows Tailwind classes applied to elements
+- [ ] No console errors related to CSS
+
+**Visual Verification**:
+- [ ] `/test-layout` route displays with proper styling
+- [ ] `/onboarding` route displays with proper styling
+- [ ] Screenshot taken of `/onboarding` showing styled UI
+- [ ] Screenshot matches design system specifications:
+  - Blue/gray color scheme visible
+  - Borders between panes rendered
+  - Rounded corners on inputs/buttons
+  - Shadows on overlays
+  - Hover states work
+
+**Documentation**:
+- [ ] Screenshots added to `task_composable_onboarding/debug/screenshots/`
+- [ ] `changes.md` updated with verification results
+- [ ] Any CSS issues documented in gap analysis
+
+### Implementation Steps
+
+1. **Verify Configuration Files** (5 min):
+   ```bash
+   # Check layout imports CSS
+   grep -n "globals.css" explore_copilotkit/app/layout.tsx
+
+   # Check Tailwind directives
+   cat explore_copilotkit/app/globals.css | grep "@tailwind"
+
+   # Check Tailwind config content paths
+   grep -A 5 "content:" explore_copilotkit/tailwind.config.ts
+   ```
+
+2. **Start Development Server** (5 min):
+   ```bash
+   cd explore_copilotkit
+   npm run dev
+   ```
+
+3. **Browser Inspection** (10 min):
+   - Open http://localhost:3000/test-layout
+   - Open Browser DevTools (F12)
+   - Network tab → Filter CSS → Verify `globals.css` loads
+   - Elements tab → Inspect components → Verify Tailwind classes present
+   - Console tab → Check for errors
+
+4. **Visual Documentation** (10 min):
+   - Take screenshot of `/test-layout` page
+   - Take screenshot of `/onboarding` page
+   - Take screenshot of form overlay opened
+   - Save to `task_composable_onboarding/debug/screenshots/`
+   - Name format: `YYYY-MM-DD_route-name_description.png`
+
+### Files to Check
+
+**Configuration Files**:
+- `explore_copilotkit/app/layout.tsx` - CSS import
+- `explore_copilotkit/app/globals.css` - Tailwind directives
+- `explore_copilotkit/tailwind.config.ts` - Content paths
+- `explore_copilotkit/postcss.config.mjs` - PostCSS config
+
+**Route Files**:
+- `explore_copilotkit/app/test-layout/page.tsx` - Test page
+- `explore_copilotkit/app/onboarding/page.tsx` - Main page
+
+### Common Issues & Solutions
+
+**Issue 1: CSS Not Loading**
+- **Symptom**: Network tab shows 404 for CSS file
+- **Solution**: Check `import './globals.css'` in `app/layout.tsx`
+
+**Issue 2: Tailwind Classes Not Applied**
+- **Symptom**: Classes in DOM but no styles rendered
+- **Solution**: Check `tailwind.config.ts` content paths include `app/**/*.{js,ts,jsx,tsx}`
+
+**Issue 3**: Purged Classes**
+- **Symptom**: Some Tailwind classes missing in production
+- **Solution**: Check if dynamic classes are in safelist
+
+**Issue 4: PostCSS Not Processing**
+- **Symptom**: Raw Tailwind directives in CSS
+- **Solution**: Verify `postcss.config.mjs` includes `tailwindcss` and `autoprefixer`
+
+### Expected vs. Actual Comparison
+
+**Expected Appearance** (from code):
+- Three panes with borders: `border-r border-gray-200`, `border-l border-gray-200`
+- Blue primary buttons: `bg-blue-600 hover:bg-blue-700`
+- Gray backgrounds: `bg-gray-50`, `bg-white`
+- Rounded corners: `rounded-md`, `rounded-lg`
+- Shadows: `shadow-lg`, `shadow-xl`
+- Typography: `text-2xl font-bold`, `text-lg font-semibold`
+
+**Document Actual Appearance**:
+- [ ] Borders visible between panes?
+- [ ] Button colors correct (blue-600)?
+- [ ] Backgrounds colored (not white everywhere)?
+- [ ] Rounded corners visible?
+- [ ] Shadows appear on overlays?
+- [ ] Font sizes/weights correct?
+
+### Rollback Plan
+
+If CSS loading is broken:
+1. Check git history for last working CSS configuration
+2. Compare current vs. working configuration files
+3. Restore working configuration if needed
+4. Document changes that broke CSS
+
+### References
+
+- Gap Analysis: `task_composable_onboarding/debug/analysis/ui_styling_gap_analysis.md`
+- Design System: `task_composable_onboarding/plan/design-system.md`
+- Tailwind Docs: https://tailwindcss.com/docs/configuration
+
+---
+
+## Task 6G: Real Workflow Integration
+
+**ID**: COMP-006G
 **Priority**: High
 **Estimated Time**: 3-4 hours
-**Dependencies**: Task 6E (Three-pane UI structure)
+**Dependencies**: Task 6F (CSS Verification)
 **Status**: ⏳ NOT STARTED
 
 ### Description

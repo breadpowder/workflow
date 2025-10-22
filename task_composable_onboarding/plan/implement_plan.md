@@ -1909,60 +1909,166 @@ export function GenericFormWrapper({
 
 ---
 
-### Task 6: Integration (~1 hour)
+### Task 6: Three-Pane Layout Integration (Replaced by Task 6A-6E Series)
 
-**Objective:** Wire all components together for end-to-end flow
+**Status:** ✅ Split into 5 sub-tasks for better management
+
+**See:** Task 6A-6E Series below for detailed breakdown
+
+**Summary:**
+- Task 6A: Three-Pane Layout Foundation (2h) ✅ Complete
+- Task 6B: LeftPane Client List (2h) ✅ Complete
+- Task 6C: MiddlePane Presentation Layer (3h) ✅ Complete
+- Task 6D: RightPane Chat + Overlay (4h) ✅ Complete
+- Task 6E: Integration & Migration (5h) ⏳ Ready to Start
+
+**Total Effort:** 16 hours (vs original 1 hour estimate)
+
+---
+
+### Task 6E: Integration & Migration (~5 hours)
+
+**Objective:** Migrate `/onboarding` to three-pane layout and implement root redirect
+
+**Migration Strategy:** Option A - Root Redirect
+- `/` → Redirect to `/onboarding` (instant, no flicker)
+- `/onboarding` → Three-pane layout with real workflow
+- `/test-layout` → Keep as demo/reference
+- **Client Selection:** Keep dynamic (corporate vs individual)
 
 **Steps:**
 
-A. **Create Main Page** (30 min)
+A. **Backup Current Implementation** (5 min)
+```bash
+cp app/page.tsx app/page-copilotkit-test.tsx.backup
+cp app/onboarding/page.tsx app/onboarding/page-single-column.tsx.backup
+```
+
+B. **Create Root Page Redirect** (15 min)
 ```typescript
 // app/page.tsx
+import { redirect } from 'next/navigation';
 
-export default function OnboardingPage() {
-  const { currentStep, collectedInputs, ... } = useWorkflowState('wf_corporate_v1');
+export default function Home() {
+  redirect('/onboarding');
+}
+```
 
+C. **Create Client Selector Component** (30 min)
+```typescript
+// components/onboarding/client-selector.tsx
+export function ClientSelector({
+  selected,
+  onChange
+}: {
+  selected: 'corporate' | 'individual';
+  onChange: (type: 'corporate' | 'individual') => void;
+}) {
   return (
-    <div className="flex h-screen">
-      <LeftPane clients={mockClients} />
-      <MiddlePane
-        profile={selectedClient}
-        currentStep={currentStep}
-        collectedInputs={collectedInputs}
-      />
-      <RightPane>
-        <WorkflowChat
-          currentStep={currentStep}
-          onStepComplete={progressToNextStep}
-        />
-      </RightPane>
+    <div className="p-4">
+      <label className="text-sm font-medium text-gray-700">Client Type</label>
+      <div className="flex gap-2 mt-2">
+        <button
+          onClick={() => onChange('corporate')}
+          className={selected === 'corporate' ? 'active' : ''}
+        >
+          Corporate
+        </button>
+        <button
+          onClick={() => onChange('individual')}
+          className={selected === 'individual' ? 'active' : ''}
+        >
+          Individual
+        </button>
+      </div>
     </div>
   );
 }
 ```
 
-B. **Connect MiddlePane to Workflow** (15 min)
-- Display required fields from current step
-- Show completion status
-- Display timeline
+D. **Migrate Onboarding Page** (2 hours)
+```typescript
+// app/onboarding/page.tsx (new three-pane layout)
+export default function OnboardingPage() {
+  const [clientType, setClientType] = useState<'corporate' | 'individual'>('corporate');
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-C. **Test End-to-End Flow** (15 min)
-- Load workflow
-- Navigate through steps
-- Collect data
-- Verify transitions
-- Test conditional branching
+  const workflow = useWorkflowState({
+    clientId: `client_${Date.now()}`,
+    client_type: clientType,
+    jurisdiction: 'US',
+    autoSave: true,
+  });
+
+  return (
+    <ThreePaneLayout
+      left={
+        <LeftPane>
+          <ClientSelector selected={clientType} onChange={setClientType} />
+          {/* Step list */}
+        </LeftPane>
+      }
+      middle={
+        <MiddlePane>
+          <WorkflowProgress workflow={workflow} />
+          <StageIndicator stages={workflow.machine?.stages} current={workflow.currentStage} />
+          {/* Current step content */}
+        </MiddlePane>
+      }
+      right={
+        <RightPane>
+          <ChatSection messages={messages} onSendMessage={handleSendMessage} dimmed={overlayOpen} />
+          <FormOverlay isOpen={overlayOpen} onClose={handleCloseOverlay}>
+            {/* Render form component */}
+          </FormOverlay>
+        </RightPane>
+      }
+    />
+  );
+}
+```
+
+E. **Test End-to-End Flow** (1 hour)
+- ✅ Root redirect works
+- ✅ Three-pane layout renders
+- ✅ Client selector switches types
+- ✅ Workflow loads for selected type
+- ✅ Forms open in overlay
+- ✅ Form submission works
+- ✅ State persists across steps
+- ✅ Complete workflow to END
+- ✅ No console errors
+
+F. **Documentation & Commit** (30 min)
+- Update implementation tracking
+- Document any deviations
+- Commit with detailed message
 
 **Acceptance Criteria:**
-- ✅ Workflow loads on page load
-- ✅ Current step displays correctly
-- ✅ Form submission progresses to next step
-- ✅ Required fields enforced
-- ✅ Conditional branching works
-- ✅ Data persists across steps
+- ✅ `/` redirects to `/onboarding` instantly
+- ✅ Three-pane layout renders correctly
+- ✅ Client selector functions (corporate/individual)
+- ✅ Workflow loads appropriate steps per client type
+- ✅ Forms render in FormOverlay (not inline)
+- ✅ Chat shows workflow status messages
+- ✅ All existing workflow features work (validation, navigation, progression)
+- ✅ State persistence works
+- ✅ Complete workflow executes start to END
+- ✅ No console errors or warnings
+- ✅ Performance acceptable (smooth scrolling, animations)
 
 **Files Created:**
-- `app/page.tsx`
+- `app/page.tsx` (new redirect)
+- `components/onboarding/client-selector.tsx`
+- `components/onboarding/workflow-progress.tsx`
+
+**Files Modified:**
+- `app/onboarding/page.tsx` (migrated to three-pane)
+
+**Files Backed Up:**
+- `app/page-copilotkit-test.tsx.backup`
+- `app/onboarding/page-single-column.tsx.backup`
 
 ---
 
@@ -2435,7 +2541,11 @@ Examples:
 - Overlay state management
 
 **Task 6E: Integration & Migration** (5h)
-- Replace single-pane with three-pane
+- Implement root page redirect (`/` → `/onboarding`)
+- Create client selector component (corporate/individual)
+- Migrate `/onboarding` to three-pane layout
+- Wire workflow state to all panes
+- Migrate forms to overlay pattern
 - End-to-end testing
 - Visual QA against mockup
 
@@ -2473,5 +2583,5 @@ Examples:
 **Document Version:** 1.1
 **Created:** 2025-10-21
 **Last Updated:** 2025-10-22
-**Status:** ⏳ In Progress - Task 6 Series Planning Complete
-**Next Action:** Update tasks.md with Task 6A-6E specifications, then begin implementation
+**Status:** ⏳ In Progress - Tasks 6A-6D Complete ✅, Task 6E Ready to Start
+**Next Action:** Begin Task 6E implementation (root redirect + onboarding migration)
