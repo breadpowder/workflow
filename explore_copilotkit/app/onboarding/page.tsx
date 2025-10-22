@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useWorkflowState } from '@/lib/hooks/useWorkflowState';
 import { getComponent } from '@/lib/ui/component-registry';
+import '@/lib/ui/registry-init'; // Initialize component registry for client-side
 import { ProgressBar } from '@/components/workflow/ProgressBar';
 import { StageIndicator } from '@/components/workflow/StageIndicator';
 import { clsx } from 'clsx';

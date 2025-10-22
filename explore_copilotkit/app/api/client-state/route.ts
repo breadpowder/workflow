@@ -89,11 +89,7 @@ export async function POST(request: NextRequest) {
           initialStepId
         );
 
-        return NextResponse.json({
-          success: true,
-          message: 'Client state initialized',
-          state,
-        });
+        return NextResponse.json(state);
       }
 
       case 'save': {
