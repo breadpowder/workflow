@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import type {
   RuntimeMachine,
   CompiledWorkflowStep,
-  ClientState,
 } from '@/lib/workflow/schema';
+import type { ClientState } from '@/lib/workflow/state-store';
 import {
   getStepById,
   executeTransition,
@@ -261,6 +261,11 @@ export function useWorkflowState(
         }
 
         if (!isMounted) return;
+
+        // Ensure we have valid client state
+        if (!clientState) {
+          throw new Error('Failed to initialize client state');
+        }
 
         // Set state from loaded/initialized data
         setCurrentStepId(clientState.currentStepId);
