@@ -970,6 +970,167 @@ This document includes:
 
 ---
 
+---
+
+## D14: Phased Three-Pane Layout Implementation
+
+**Date:** 2025-10-22
+**Status:** ✅ Decided
+**Decision:** Implement three-pane layout incrementally with risk mitigation
+
+### Context
+
+During POC implementation, discovered that current UI uses single-pane centered layout while design specifications (Decision D10) require three-pane horizontal layout. This gap was identified after core workflow functionality was completed.
+
+**Gap Analysis**:
+- Current: Single-column layout (functional, mobile-friendly)
+- Target: Three-pane layout (context-rich, professional, desktop-focused)
+- Missing: 12 components (layout structure, presentation layer, chat interface)
+- Effort: 16-20 hours estimated
+
+### Options Considered
+
+#### Option A: Continue with Single-Pane Layout
+**Pros:**
+- Already functional
+- Lower complexity
+- Mobile-friendly
+- Zero risk
+
+**Cons:**
+- Doesn't match approved mockup
+- Misses stakeholder expectations
+- Less professional appearance
+- No context-rich interface
+
+#### Option B: Full Three-Pane Implementation (Big Bang)
+**Pros:**
+- Matches mockup exactly
+- Complete feature set
+- Professional appearance
+
+**Cons:**
+- High risk (20+ hours without checkpoints)
+- All-or-nothing approach
+- Hard to rollback if issues arise
+- May break existing functionality
+
+#### Option C: Phased Implementation with Checkpoints ✅ SELECTED
+**Pros:**
+- Reduces risk through incremental delivery
+- Testable after each phase
+- Easy rollback at any checkpoint
+- Maintains working state throughout
+- Clear validation criteria per phase
+
+**Cons:**
+- Takes slightly longer (planning overhead)
+- Requires disciplined task breakdown
+- More git commits to manage
+
+### Decision Rationale
+
+**Chosen: Option C - Phased Implementation**
+
+**Why:**
+1. **Risk Management**: Building incrementally allows testing at each phase
+2. **Rollback Safety**: Can revert to previous checkpoint if issues arise
+3. **Working Software**: Application remains functional throughout development
+4. **Validation**: Clear acceptance criteria per phase ensures quality
+5. **Learning**: Issues discovered early can inform later phases
+
+### Implementation Strategy
+
+**Phase Structure:**
+
+**Phase 1: Foundation** (Task 6A - 2h)
+- Build three-pane layout shell
+- Implement responsive behavior
+- **Checkpoint**: Three empty panes render correctly
+
+**Phase 2: Left & Middle** (Tasks 6B, 6C - 5h)
+- Add LeftPane client list
+- Add MiddlePane presentation sections
+- **Checkpoint**: Left and middle panes display data correctly
+
+**Phase 3: Right Pane + Overlay** (Task 6D - 4h)
+- Add chat interface
+- Add form overlay component
+- **Checkpoint**: Chat displays, overlay opens/closes
+
+**Phase 4: Integration** (Task 6E - 5h)
+- Replace single-pane page with three-pane
+- End-to-end testing
+- **Checkpoint**: Complete workflow executes successfully
+
+**Phase 5: Polish** (1h)
+- Visual QA against mockup
+- Performance optimization
+- Documentation updates
+
+**Total: 17 hours + 3h buffer = 20h**
+
+### Risk Mitigation
+
+**Rollback Triggers:**
+- Workflow progression breaks
+- Form validation stops working
+- State management corrupts
+- Performance degrades below 60fps
+- Cannot complete within 20-hour budget
+
+**Rollback Procedure:**
+```bash
+# Option 1: Revert commits
+git revert HEAD~5..HEAD
+
+# Option 2: Restore backup
+cp app/onboarding/page-single-pane.tsx.backup app/onboarding/page.tsx
+```
+
+**Development Safeguards:**
+- Feature branch: `feature/three-pane-layout-implementation`
+- Backup current working page before starting
+- Commit after each task completion
+- Run smoke tests after each phase
+- Alert user immediately if anything breaks
+
+### Success Criteria
+
+**Functional:**
+- ✅ All workflow features work (progression, validation, navigation)
+- ✅ Form submission updates inputs correctly
+- ✅ Stage indicator shows correct progress
+- ✅ No console errors
+
+**Visual:**
+- ✅ Layout matches mockup structure
+- ✅ Three panes with correct widths (316px | flex-1 | 476px)
+- ✅ Professional color scheme applied
+- ✅ Responsive behavior on mobile/tablet
+
+**Quality:**
+- ✅ TypeScript strict mode passes
+- ✅ Performance acceptable (60fps scrolling)
+- ✅ No breaking changes to existing APIs
+
+### Impact
+
+This decision affects:
+- **Timeline**: Adds 16-20 hours to POC completion
+- **Scope**: Changes Task 6 from single integration task to 5-task series
+- **Risk**: Mitigated through phased approach with rollback points
+- **Deliverable**: POC now includes complete three-pane layout per mockup
+
+### References
+
+- **Gap Analysis**: `debug/analysis/ui_layout_gap_analysis.md`
+- **Design Spec**: Decision D10 (Three-Pane Layout)
+- **Task Breakdown**: See tasks.md Task 6A-6E
+- **Mockup**: `/home/zineng/workspace/explore_copilotkit/onboarding-mockup-with-form.excalidraw`
+
+---
+
 ## Summary of Key Decisions
 
 | Decision | Chosen Option | Impact |
@@ -988,6 +1149,7 @@ This document includes:
 | **Styling** | **Tailwind CSS** | **Precision, consistency, performance** |
 | **Component Reusability** | **Schema-driven components** | **70% code reduction, business user control** |
 | **YAML Architecture** | **Two-level (workflow + task)** | **Single source of truth, reusability, inheritance** |
+| **Implementation Approach** | **Phased with checkpoints** | **Risk mitigation, rollback safety, quality assurance** |
 
 **Total Estimated Implementation Time:** ~18 hours (increased to account for UI implementation)
 
