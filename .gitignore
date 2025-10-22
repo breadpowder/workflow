@@ -46,3 +46,5 @@ task_*/
 # Project-specific
 excalidraw.log
 task_composable_onboarding/CHANGES_SUMMARY.md
+nodejs_*.md
+.claude/

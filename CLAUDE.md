@@ -2,6 +2,7 @@
 
 ## Overview
 This project implements composable, YAML-driven workflow systems for React applications with AI capabilities using CopilotKit. All code must follow the established patterns and conventions.
+Your project root is in <project_root>/explore_copilotkit
 
 ---
 
