@@ -352,3 +352,174 @@ export function getNextUncompletedStep(
 
   return null;
 }
+
+/**
+ * Expression Evaluation Engine
+ *
+ * Evaluates conditional expressions for workflow transitions.
+ * Supports comparison operators: >, <, ==, !=, >=, <=
+ */
+
+/**
+ * Evaluate a single expression condition
+ *
+ * @param expression - Expression string (e.g., "input.entity_type == 'corporation'")
+ * @param inputs - Current input values
+ * @returns True if expression evaluates to true, false otherwise
+ *
+ * @example
+ * evaluateExpression("input.revenue > 1000000", { revenue: 2000000 })
+ * // Returns: true
+ *
+ * evaluateExpression("input.entity_type == 'corporation'", { entity_type: 'llc' })
+ * // Returns: false
+ */
+export function evaluateExpression(
+  expression: string,
+  inputs: Record<string, any>
+): boolean {
+  // Remove extra whitespace
+  const trimmed = expression.trim();
+
+  // Parse expression: "input.field operator value"
+  // Supported operators: ==, !=, >, <, >=, <=
+  const operators = ['==', '!=', '>=', '<=', '>', '<'];
+
+  for (const operator of operators) {
+    if (trimmed.includes(operator)) {
+      const parts = trimmed.split(operator).map((p) => p.trim());
+      if (parts.length !== 2) {
+        console.warn(
+          `Invalid expression format: "${expression}". Expected "field operator value"`
+        );
+        return false;
+      }
+
+      const [leftSide, rightSide] = parts;
+
+      // Extract field name from left side (e.g., "input.field" -> "field")
+      const fieldMatch = leftSide.match(/input\.(\w+)/);
+      if (!fieldMatch) {
+        console.warn(
+          `Invalid left side format: "${leftSide}". Expected "input.fieldName"`
+        );
+        return false;
+      }
+
+      const fieldName = fieldMatch[1];
+      const leftValue = inputs[fieldName];
+
+      // Parse right side value
+      const rightValue = parseValue(rightSide);
+
+      // Evaluate comparison
+      return compareValues(leftValue, rightValue, operator);
+    }
+  }
+
+  console.warn(`No operator found in expression: "${expression}"`);
+  return false;
+}
+
+/**
+ * Parse a value from string representation
+ *
+ * Supports: numbers, strings (quoted), booleans, null
+ *
+ * @param valueStr - String representation of value
+ * @returns Parsed value
+ *
+ * @example
+ * parseValue("'corporation'") // Returns: "corporation"
+ * parseValue("1000000")       // Returns: 1000000
+ * parseValue("true")          // Returns: true
+ */
+function parseValue(valueStr: string): any {
+  const trimmed = valueStr.trim();
+
+  // String (single or double quotes)
+  if (
+    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+    (trimmed.startsWith('"') && trimmed.endsWith('"'))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+
+  // Boolean
+  if (trimmed === 'true') return true;
+  if (trimmed === 'false') return false;
+
+  // Null
+  if (trimmed === 'null') return null;
+
+  // Number
+  const num = Number(trimmed);
+  if (!isNaN(num)) return num;
+
+  // Default: return as string
+  return trimmed;
+}
+
+/**
+ * Compare two values using the specified operator
+ *
+ * @param left - Left value
+ * @param right - Right value
+ * @param operator - Comparison operator
+ * @returns Comparison result
+ */
+function compareValues(left: any, right: any, operator: string): boolean {
+  switch (operator) {
+    case '==':
+      // eslint-disable-next-line eqeqeq
+      return left == right;
+
+    case '!=':
+      // eslint-disable-next-line eqeqeq
+      return left != right;
+
+    case '>':
+      return left > right;
+
+    case '<':
+      return left < right;
+
+    case '>=':
+      return left >= right;
+
+    case '<=':
+      return left <= right;
+
+    default:
+      console.warn(`Unknown operator: "${operator}"`);
+      return false;
+  }
+}
+
+/**
+ * Evaluate multiple expression conditions
+ *
+ * @param conditions - Array of condition objects
+ * @param inputs - Current input values
+ * @returns First matching condition, or null if none match
+ *
+ * @example
+ * const conditions = [
+ *   { when: "input.revenue > 1000000", then: "highValuePath" },
+ *   { when: "input.revenue <= 1000000", then: "standardPath" }
+ * ];
+ * const result = evaluateConditions(conditions, { revenue: 2000000 });
+ * // Returns: { when: "input.revenue > 1000000", then: "highValuePath" }
+ */
+export function evaluateConditions(
+  conditions: WorkflowStepNextCondition[],
+  inputs: Record<string, any>
+): WorkflowStepNextCondition | null {
+  for (const condition of conditions) {
+    if (evaluateExpression(condition.when, inputs)) {
+      return condition;
+    }
+  }
+
+  return null;
+}
