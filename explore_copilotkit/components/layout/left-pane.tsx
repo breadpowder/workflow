@@ -17,14 +17,16 @@ export function LeftPane({ children, className }: LeftPaneProps) {
   return (
     <aside
       className={clsx(
-        // Fixed width and border
-        'w-[316px] border-r border-gray-200',
+        // Fixed width (flex-shrink-0 prevents shrinking)
+        'w-[316px] flex-shrink-0',
+        // Border
+        'border-r border-gray-200',
         // Scrolling
         'overflow-y-auto',
         // Background
         'bg-gray-50',
-        // Responsive: hidden on mobile, visible on desktop
-        'hidden lg:block',
+        // Full height
+        'h-full',
         className
       )}
     >
