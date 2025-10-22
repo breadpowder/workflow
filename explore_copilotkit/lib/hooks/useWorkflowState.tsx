@@ -264,7 +264,11 @@ export function useWorkflowState(
             throw new Error(`Failed to initialize state: ${response.statusText}`);
           }
 
-          clientState = await response.json();
+          const payload = await response.json();
+          clientState =
+            payload && typeof payload === 'object' && 'state' in payload
+              ? (payload.state as ClientState)
+              : (payload as ClientState);
         }
 
         if (!isMounted) return;
@@ -275,11 +279,20 @@ export function useWorkflowState(
         }
 
         // Set state from loaded/initialized data
-        setCurrentStepId(clientState.currentStepId);
-        setCurrentStage(clientState.currentStage);
-        setInputs(clientState.collectedInputs);
-        setCompletedSteps(clientState.completedSteps);
-        setIsComplete(clientState.currentStepId === 'END');
+        const effectiveStepId =
+          clientState.currentStepId || loadedMachine.steps[0]?.id || '';
+        const effectiveStep =
+          effectiveStepId && effectiveStepId !== 'END'
+            ? getStepById(loadedMachine, effectiveStepId)
+            : null;
+        const effectiveStage =
+          clientState.currentStage ?? effectiveStep?.stage ?? undefined;
+
+        setCurrentStepId(effectiveStepId);
+        setCurrentStage(effectiveStage);
+        setInputs(clientState.collectedInputs || {});
+        setCompletedSteps(clientState.completedSteps || []);
+        setIsComplete(effectiveStepId === 'END');
       } catch (err) {
         if (isMounted) {
           const errorMsg = err instanceof Error ? err.message : 'Failed to initialize workflow';
