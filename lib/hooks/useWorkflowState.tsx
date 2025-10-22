@@ -70,7 +70,8 @@ export interface UseWorkflowStateReturn {
  */
 export interface UseWorkflowStateOptions {
   clientId: string;
-  workflowId: string;
+  client_type: string; // "corporate" | "individual" | "trust"
+  jurisdiction?: string; // "US" | "CA" | "GB"
   autoSave?: boolean; // Auto-save state on input changes (default: true)
   saveDebounceMs?: number; // Debounce delay for auto-save (default: 500ms)
 }
@@ -88,7 +89,8 @@ export interface UseWorkflowStateOptions {
  * function OnboardingPage() {
  *   const workflow = useWorkflowState({
  *     clientId: 'client_123',
- *     workflowId: 'wf_corporate_v1'
+ *     client_type: 'corporate',
+ *     jurisdiction: 'US'
  *   });
  *
  *   return (
@@ -115,7 +117,8 @@ export function useWorkflowState(
 ): UseWorkflowStateReturn {
   const {
     clientId,
-    workflowId,
+    client_type,
+    jurisdiction,
     autoSave = true,
     saveDebounceMs = 500,
   } = options;
@@ -141,9 +144,12 @@ export function useWorkflowState(
    */
   const loadMachine = useCallback(async () => {
     try {
-      const response = await fetch(
-        `/api/workflows?workflowId=${encodeURIComponent(workflowId)}`
-      );
+      const params = new URLSearchParams({ client_type });
+      if (jurisdiction) {
+        params.append('jurisdiction', jurisdiction);
+      }
+
+      const response = await fetch(`/api/workflows?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error(`Failed to load workflow: ${response.statusText}`);
@@ -157,7 +163,7 @@ export function useWorkflowState(
       setError(errorMsg);
       throw err;
     }
-  }, [workflowId]);
+  }, [client_type, jurisdiction]);
 
   /**
    * Load client state from API
@@ -242,7 +248,7 @@ export function useWorkflowState(
             body: JSON.stringify({
               action: 'initialize',
               clientId,
-              workflowId,
+              workflowId: loadedMachine.workflowId,
               initialStepId,
             }),
           });
@@ -283,7 +289,7 @@ export function useWorkflowState(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId, workflowId]);
+  }, [clientId, client_type, jurisdiction]);
 
   /**
    * Get current step object
