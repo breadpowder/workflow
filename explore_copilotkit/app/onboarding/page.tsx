@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /**
  * Test page for Task 6A-6D: Three-Pane Layout Complete
@@ -18,115 +18,145 @@
  * - Chat dimmed when overlay active
  */
 
-import { useState, useMemo } from 'react';
-import { ThreePaneLayout } from '@/components/layout/three-pane-layout';
-import { LeftPane } from '@/components/layout/left-pane';
-import { MiddlePane } from '@/components/layout/middle-pane';
-import { RightPane } from '@/components/layout/right-pane';
-import { ClientList } from '@/components/onboarding/client-list';
-import { ProfileSection } from '@/components/onboarding/profile-section';
-import { RequiredFieldsSection, RequiredField } from '@/components/onboarding/required-fields-section';
-import { TimelineSection, TimelineEvent } from '@/components/onboarding/timeline-section';
-import { ChatSection, ChatMessage } from '@/components/chat/chat-section';
-import { FormOverlay } from '@/components/onboarding/form-overlay';
-import { Client } from '@/lib/mock-data/clients';
+import "@/lib/ui/registry-init"; // Initialize component registry
+import { useState, useMemo } from "react";
+import { ThreePaneLayout } from "@/components/layout/three-pane-layout";
+import { LeftPane } from "@/components/layout/left-pane";
+import { MiddlePane } from "@/components/layout/middle-pane";
+import { RightPane } from "@/components/layout/right-pane";
+import { ClientList } from "@/components/onboarding/client-list";
+import { ProfileSection } from "@/components/onboarding/profile-section";
+import {
+  RequiredFieldsSection,
+  RequiredField,
+} from "@/components/onboarding/required-fields-section";
+import {
+  TimelineSection,
+  TimelineEvent,
+} from "@/components/onboarding/timeline-section";
+import { ChatSection, ChatMessage } from "@/components/chat/chat-section";
+import { FormOverlay } from "@/components/onboarding/form-overlay";
+import { Client } from "@/lib/mock-data/clients";
+import { useWorkflowState } from "@/lib/hooks/useWorkflowState";
+import { getComponent } from "@/lib/ui/component-registry";
 
 export default function TestLayoutPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [overlayOpen, setOverlayOpen] = useState(false);
+
+  // Real workflow state integration
+  const workflow = useWorkflowState({
+    clientId: selectedClient?.id || "demo_client",
+    client_type: selectedClient?.type || "corporate",
+    jurisdiction: "US",
+    autoSave: true,
+  });
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      id: '1',
-      role: 'system',
-      content: 'Welcome to the onboarding chat. I can help you with client onboarding tasks.',
+      id: "1",
+      role: "system",
+      content:
+        "Welcome to the onboarding chat. I can help you with client onboarding tasks.",
       timestamp: new Date(Date.now() - 60000),
-      type: 'info',
+      type: "info",
     },
     {
-      id: '2',
-      role: 'ai',
-      content: 'Hello! How can I assist you with the onboarding process today?',
+      id: "2",
+      role: "ai",
+      content: "Hello! How can I assist you with the onboarding process today?",
       timestamp: new Date(Date.now() - 30000),
     },
   ]);
 
-  // Mock required fields data (for POC demonstration)
+  // Real required fields from workflow
   const requiredFields: RequiredField[] = useMemo(() => {
-    if (!selectedClient) return [];
+    if (!selectedClient || !workflow.currentStep) return [];
 
-    // Different fields based on client type
-    if (selectedClient.type === 'corporate') {
-      return [
-        { name: 'company_name', label: 'Company Name', completed: true, description: 'Legal entity name' },
-        { name: 'registration_number', label: 'Registration Number', completed: true },
-        { name: 'incorporation_date', label: 'Incorporation Date', completed: false },
-        { name: 'registered_address', label: 'Registered Address', completed: false },
-        { name: 'beneficial_owners', label: 'Beneficial Owners', completed: false, description: 'UBO declaration required' },
-        { name: 'financial_statements', label: 'Financial Statements', completed: false },
-        { name: 'tax_id', label: 'Tax Identification Number', completed: true },
-      ];
-    } else {
-      return [
-        { name: 'full_name', label: 'Full Legal Name', completed: true },
-        { name: 'date_of_birth', label: 'Date of Birth', completed: true },
-        { name: 'id_document', label: 'ID Document', completed: false, description: 'Passport or national ID' },
-        { name: 'residential_address', label: 'Residential Address', completed: false },
-        { name: 'proof_of_address', label: 'Proof of Address', completed: false },
-        { name: 'source_of_funds', label: 'Source of Funds', completed: false },
-      ];
-    }
-  }, [selectedClient]);
+    return (workflow.currentStep.required_fields || []).map((fieldName) => ({
+      name: fieldName,
+      label: fieldName
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" "),
+      completed:
+        !!workflow.inputs[fieldName] && workflow.inputs[fieldName] !== "",
+      description: workflow.currentStep?.schema?.fields?.find(
+        (f: { name: string }) => f.name === fieldName,
+      )?.label,
+    }));
+  }, [selectedClient, workflow.currentStep, workflow.inputs]);
 
-  // Mock timeline events data (for POC demonstration)
+  // Real timeline from workflow events
   const timelineEvents: TimelineEvent[] = useMemo(() => {
     if (!selectedClient) return [];
 
-    return [
+    const events: TimelineEvent[] = [
       {
-        id: '1',
-        type: 'created',
-        title: 'Client Created',
+        id: "1",
+        type: "created",
+        title: "Client Created",
         description: `${selectedClient.name} was added to the system`,
         timestamp: selectedClient.createdAt,
-        user: 'System',
+        user: "System",
       },
-      {
-        id: '2',
-        type: 'updated',
-        title: 'Profile Updated',
-        description: 'Contact information verified',
-        timestamp: selectedClient.lastActivity,
-        user: 'John Compliance',
-      },
-      {
-        id: '3',
-        type: 'review',
-        title: 'Risk Assessment',
-        description: `Risk level set to ${selectedClient.risk}`,
-        timestamp: selectedClient.lastActivity,
-        user: 'Risk Team',
-      },
-      ...(selectedClient.status === 'complete'
-        ? [
-            {
-              id: '4',
-              type: 'completed' as const,
-              title: 'Onboarding Complete',
-              description: 'All required documents verified',
-              timestamp: selectedClient.lastActivity,
-              user: 'Compliance Team',
-            },
-          ]
-        : []),
     ];
-  }, [selectedClient]);
+
+    // Add events for completed steps
+    workflow.completedSteps.forEach((stepId, index) => {
+      const step = workflow.machine?.stepIndexById?.get(stepId);
+      if (step) {
+        events.push({
+          id: `step_${index}`,
+          type: "updated",
+          title: "Step Completed",
+          description: `Completed: ${step.task_definition?.name || stepId}`,
+          timestamp: new Date().toISOString(), // In real app, would track completion time
+          user: "User",
+        });
+      }
+    });
+
+    // Add current step as in-progress
+    if (workflow.currentStep && !workflow.isComplete) {
+      events.push({
+        id: "current",
+        type: "review",
+        title: "Current Step",
+        description: `Working on: ${workflow.currentStep.task_definition?.name || workflow.currentStepId}`,
+        timestamp: new Date().toISOString(),
+        user: "User",
+      });
+    }
+
+    // Add completion event if done
+    if (workflow.isComplete) {
+      events.push({
+        id: "complete",
+        type: "completed",
+        title: "Onboarding Complete",
+        description: "All required steps verified",
+        timestamp: new Date().toISOString(),
+        user: "System",
+      });
+    }
+
+    return events;
+  }, [
+    selectedClient,
+    workflow.completedSteps,
+    workflow.currentStep,
+    workflow.currentStepId,
+    workflow.isComplete,
+    workflow.machine,
+  ]);
 
   // Handle sending a message
   const handleSendMessage = (content: string) => {
     // Add user message
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      role: 'user',
+      role: "user",
       content,
       timestamp: new Date(),
     };
@@ -136,7 +166,7 @@ export default function TestLayoutPage() {
     setTimeout(() => {
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        role: 'ai',
+        role: "ai",
         content: `I received your message: "${content}". This is a demo response. Try clicking "Open Form Overlay" to see the form overlay feature!`,
         timestamp: new Date(),
       };
@@ -147,13 +177,12 @@ export default function TestLayoutPage() {
   // Handle opening overlay
   const handleOpenOverlay = () => {
     setOverlayOpen(true);
-    // Add system message
     const systemMessage: ChatMessage = {
       id: Date.now().toString(),
-      role: 'system',
-      content: 'Opening contact information form...',
+      role: "system",
+      content: `Opening form: ${workflow.currentStep?.task_definition?.name || "form"}...`,
       timestamp: new Date(),
-      type: 'info',
+      type: "info",
     };
     setMessages((prev) => [...prev, systemMessage]);
   };
@@ -163,13 +192,60 @@ export default function TestLayoutPage() {
     setOverlayOpen(false);
     const systemMessage: ChatMessage = {
       id: Date.now().toString(),
-      role: 'system',
-      content: 'Form closed. You can resume the conversation.',
+      role: "system",
+      content: "Form closed. You can resume the conversation.",
       timestamp: new Date(),
-      type: 'warning',
+      type: "warning",
     };
     setMessages((prev) => [...prev, systemMessage]);
   };
+
+  // Show loading spinner while workflow loads
+  if (workflow.isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading workflow...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if workflow failed to load
+  if (workflow.error) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center text-red-600">
+          <p className="font-semibold mb-2">Error loading workflow</p>
+          <p className="text-sm">{workflow.error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show completion screen when workflow is done
+  if (workflow.isComplete) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="text-green-600 text-6xl mb-4">✓</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Onboarding Complete!
+          </h2>
+          <p className="text-gray-600 mb-4">
+            All required steps have been completed.
+          </p>
+          <button
+            onClick={() => workflow.resetWorkflow()}
+            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Start New Workflow
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <ThreePaneLayout
@@ -216,7 +292,9 @@ export default function TestLayoutPage() {
                     />
                   </svg>
                   <p>Select a client from the left panel</p>
-                  <p className="text-sm mt-1">to view their details and workflow status</p>
+                  <p className="text-sm mt-1">
+                    to view their details and workflow status
+                  </p>
                 </div>
               </div>
             )}
@@ -236,120 +314,92 @@ export default function TestLayoutPage() {
           <FormOverlay
             isOpen={overlayOpen}
             onClose={handleCloseOverlay}
-            title="Contact Information Form"
+            title={workflow.currentStep?.task_definition?.name || "Form"}
           >
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                This is a demo form overlay. In the real implementation, this would render
-                a form component from the component registry.
-              </p>
+            {workflow.currentStep ? (
+              (() => {
+                const FormComponent = getComponent(
+                  workflow.currentStep.component_id || "form",
+                );
 
-              {/* Demo Form Fields */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter full name"
-                />
-              </div>
+                if (!FormComponent) {
+                  return (
+                    <div className="text-red-600">
+                      <p>
+                        Error: Component "{workflow.currentStep.component_id}"
+                        not found in registry
+                      </p>
+                    </div>
+                  );
+                }
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter email"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter phone"
-                />
-              </div>
-
-              {/* Demo Action Buttons */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    const successMessage: ChatMessage = {
-                      id: Date.now().toString(),
-                      role: 'system',
-                      content: 'Form submitted successfully!',
-                      timestamp: new Date(),
-                      type: 'success',
-                    };
-                    setMessages((prev) => [...prev, successMessage]);
-                    handleCloseOverlay();
-                  }}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Submit
-                </button>
-                <button
-                  onClick={handleCloseOverlay}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-
-              {/* Demo Trigger for System Messages */}
-              <div className="pt-4 border-t border-gray-200">
-                <p className="text-xs text-gray-500 mb-2">Demo: Test system messages</p>
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={() => {
-                      const msg: ChatMessage = {
-                        id: Date.now().toString(),
-                        role: 'system',
-                        content: 'This is an error message example.',
-                        timestamp: new Date(),
-                        type: 'error',
-                      };
-                      setMessages((prev) => [...prev, msg]);
+                return (
+                  <FormComponent
+                    stepId={workflow.currentStepId}
+                    schema={workflow.currentStep.schema || { fields: [] }}
+                    inputs={workflow.inputs}
+                    onInputChange={(fieldName, value) => {
+                      workflow.updateInput(fieldName, value);
                     }}
-                    className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded"
-                  >
-                    Error
-                  </button>
-                  <button
-                    onClick={() => {
-                      const msg: ChatMessage = {
-                        id: Date.now().toString(),
-                        role: 'system',
-                        content: 'This is a success message example.',
-                        timestamp: new Date(),
-                        type: 'success',
-                      };
-                      setMessages((prev) => [...prev, msg]);
+                    onSubmit={async () => {
+                      // Check if can proceed
+                      if (!workflow.canProceed) {
+                        const errorMessage: ChatMessage = {
+                          id: Date.now().toString(),
+                          role: "system",
+                          content: `Missing required fields: ${workflow.missingFields.join(", ")}`,
+                          timestamp: new Date(),
+                          type: "error",
+                        };
+                        setMessages((prev) => [...prev, errorMessage]);
+                        return;
+                      }
+
+                      // Progress workflow
+                      try {
+                        await workflow.goToNextStep();
+
+                        const successMessage: ChatMessage = {
+                          id: Date.now().toString(),
+                          role: "system",
+                          content:
+                            "Form submitted successfully! Moving to next step...",
+                          timestamp: new Date(),
+                          type: "success",
+                        };
+                        setMessages((prev) => [...prev, successMessage]);
+                        handleCloseOverlay();
+                      } catch (error) {
+                        const errorMessage: ChatMessage = {
+                          id: Date.now().toString(),
+                          role: "system",
+                          content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+                          timestamp: new Date(),
+                          type: "error",
+                        };
+                        setMessages((prev) => [...prev, errorMessage]);
+                      }
                     }}
-                    className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded"
-                  >
-                    Success
-                  </button>
-                </div>
+                    requiredFields={workflow.currentStep.required_fields || []}
+                    isProcessing={workflow.isTransitioning}
+                    error={workflow.error || undefined}
+                  />
+                );
+              })()
+            ) : (
+              <div className="text-gray-600">
+                <p>No current step available. Workflow may be complete.</p>
               </div>
-            </div>
+            )}
           </FormOverlay>
 
           {/* Demo Button to Trigger Overlay (Floating) */}
-          {!overlayOpen && (
+          {!overlayOpen && workflow.currentStep && (
             <button
               onClick={handleOpenOverlay}
               className="absolute bottom-24 right-8 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition-colors z-10"
             >
-              Open Form Overlay
+              Open Current Step Form
             </button>
           )}
         </RightPane>

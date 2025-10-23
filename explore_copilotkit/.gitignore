@@ -48,3 +48,5 @@ Thumbs.db
 # Client state (POC - file-based storage)
 data/client_state/*.json
 data/client_state/*.tmp
+# Client state files (runtime data, not source code)
+data/client_state/*.json
