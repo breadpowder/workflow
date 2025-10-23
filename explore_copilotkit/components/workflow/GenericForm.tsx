@@ -8,7 +8,7 @@ import clsx from 'clsx';
  * GenericForm Component
  *
  * Renders a form based on the schema definition from YAML task files.
- * Supports text, email, number, select, textarea, and checkbox field types.
+ * Supports text, email, number, tel, select, textarea, and checkbox field types.
  */
 export function GenericForm({
   stepId,
@@ -77,6 +77,31 @@ export function GenericForm({
               disabled={isProcessing}
               className={baseInputClasses}
             />
+          </div>
+        );
+
+      case 'tel':
+        return (
+          <div key={name} className="mb-4">
+            <label htmlFor={name} className="block text-sm font-medium mb-2">
+              {label}
+              {isRequired && <span className="text-danger ml-1">*</span>}
+            </label>
+            <input
+              type="tel"
+              id={name}
+              name={name}
+              value={value}
+              onChange={(e) => onInputChange(name, e.target.value)}
+              placeholder={placeholder}
+              pattern={field.validation?.pattern}
+              required={isRequired}
+              disabled={isProcessing}
+              className={baseInputClasses}
+            />
+            {field.helpText && (
+              <p className="text-sm text-gray-500 mt-1">{field.helpText}</p>
+            )}
           </div>
         );
 

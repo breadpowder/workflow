@@ -19,7 +19,7 @@
  */
 
 import "@/lib/ui/registry-init"; // Initialize component registry
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { ThreePaneLayout } from "@/components/layout/three-pane-layout";
 import { LeftPane } from "@/components/layout/left-pane";
 import { MiddlePane } from "@/components/layout/middle-pane";
@@ -43,6 +43,7 @@ import { getComponent } from "@/lib/ui/component-registry";
 export default function TestLayoutPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const previousStepIdRef = useRef<string>('');
 
   // Real workflow state integration
   const workflow = useWorkflowState({
@@ -200,6 +201,15 @@ export default function TestLayoutPage() {
     setMessages((prev) => [...prev, systemMessage]);
   };
 
+  // Auto-close overlay when workflow progresses to next step
+  useEffect(() => {
+    if (overlayOpen && !workflow.isTransitioning && workflow.currentStepId &&
+        workflow.currentStepId !== previousStepIdRef.current) {
+      previousStepIdRef.current = workflow.currentStepId;
+      handleCloseOverlay();
+    }
+  }, [workflow.currentStepId, workflow.isTransitioning, overlayOpen]);
+
   // Show loading spinner while workflow loads
   if (workflow.isLoading) {
     return (
@@ -261,7 +271,7 @@ export default function TestLayoutPage() {
         <MiddlePane>
           <div className="p-8">
             <h1 className="text-2xl font-bold text-gray-900 mb-6">
-              Middle Pane - Client Details
+              Client Details
             </h1>
 
             {selectedClient ? (
