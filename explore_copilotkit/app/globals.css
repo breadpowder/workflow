@@ -1,6 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  /* Custom colors from design system */
+  --color-primary: #1e40af;
+  --color-accent: #14b8a6;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+}
+
+/* Define content sources for Tailwind CSS v4 */
+@source "../app";
+@source "../components";
+@source "../lib";
 
 :root {
   --foreground-rgb: 0, 0, 0;
