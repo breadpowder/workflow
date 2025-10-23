@@ -1,8 +1,12 @@
 /**
- * Mock Client Data for POC
+ * Client Type Definitions and Migration Data
  *
- * Provides sample client data for testing the client list component.
- * In production, this would come from a database or API.
+ * This file contains:
+ * 1. Type definitions for Client data (used throughout the app)
+ * 2. MOCK_CLIENTS array (used ONLY by migration utility)
+ *
+ * NOTE: UI components should use useClientData() hook, not direct imports from this file.
+ * Production: Client data stored in data/client_state/*.json files.
  */
 
 export type ClientType = 'corporate' | 'individual';
@@ -94,36 +98,11 @@ export const MOCK_INDIVIDUAL_CLIENTS: Client[] = [
 
 /**
  * All mock clients combined
+ *
+ * DEPRECATED: Used ONLY by migration utility (lib/workflow/migrate-clients.ts)
+ * UI components should use useClientData() hook instead.
  */
 export const MOCK_CLIENTS: Client[] = [
   ...MOCK_CORPORATE_CLIENTS,
   ...MOCK_INDIVIDUAL_CLIENTS,
 ];
-
-/**
- * Get clients by type
- */
-export function getClientsByType(type: ClientType): Client[] {
-  return MOCK_CLIENTS.filter((client) => client.type === type);
-}
-
-/**
- * Get client by ID
- */
-export function getClientById(id: string): Client | undefined {
-  return MOCK_CLIENTS.find((client) => client.id === id);
-}
-
-/**
- * Filter clients by search query
- */
-export function searchClients(query: string): Client[] {
-  const lowerQuery = query.toLowerCase().trim();
-  if (!lowerQuery) return MOCK_CLIENTS;
-
-  return MOCK_CLIENTS.filter((client) =>
-    client.name.toLowerCase().includes(lowerQuery) ||
-    client.email.toLowerCase().includes(lowerQuery) ||
-    client.id.toLowerCase().includes(lowerQuery)
-  );
-}

@@ -8,7 +8,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Client, getClientsByType, searchClients } from '@/lib/mock-data/clients';
+import { useClientData } from '@/lib/hooks/useClientData';
+import type { Client } from '@/lib/mock-data/clients';
 import { ClientFolder } from './client-folder';
 
 interface ClientListProps {
@@ -22,21 +23,57 @@ export function ClientList({
 }: ClientListProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Fetch client data from file-based storage
+  const { clients, loading, error, searchClients: searchFn } = useClientData();
+
   // Filter clients based on search query
   const filteredClients = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return {
-        corporate: getClientsByType('corporate'),
-        individual: getClientsByType('individual'),
-      };
-    }
+    const results = searchQuery.trim()
+      ? searchFn(searchQuery)
+      : clients;
 
-    const results = searchClients(searchQuery);
     return {
       corporate: results.filter((c) => c.type === 'corporate'),
       individual: results.filter((c) => c.type === 'individual'),
     };
-  }, [searchQuery]);
+  }, [searchQuery, clients, searchFn]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600">Loading clients...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full p-4">
+        <div className="text-center text-red-600">
+          <svg
+            className="w-12 h-12 mx-auto mb-2"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+          <p className="font-semibold mb-1">Error loading clients</p>
+          <p className="text-sm">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">

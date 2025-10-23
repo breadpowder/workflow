@@ -10,7 +10,7 @@
  * - Created date
  */
 
-import { Client } from '@/lib/mock-data/clients';
+import type { Client } from '@/lib/mock-data/clients';
 import clsx from 'clsx';
 
 export interface ProfileSectionProps {

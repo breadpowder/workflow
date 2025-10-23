@@ -29,7 +29,7 @@ import { RequiredFieldsSection, RequiredField } from '@/components/onboarding/re
 import { TimelineSection, TimelineEvent } from '@/components/onboarding/timeline-section';
 import { ChatSection, ChatMessage } from '@/components/chat/chat-section';
 import { FormOverlay } from '@/components/onboarding/form-overlay';
-import { Client } from '@/lib/mock-data/clients';
+import type { Client } from '@/lib/mock-data/clients';
 
 export default function TestLayoutPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);

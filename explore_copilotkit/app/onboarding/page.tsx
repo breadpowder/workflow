@@ -36,7 +36,7 @@ import {
 } from "@/components/onboarding/timeline-section";
 import { ChatSection, ChatMessage } from "@/components/chat/chat-section";
 import { FormOverlay } from "@/components/onboarding/form-overlay";
-import { Client } from "@/lib/mock-data/clients";
+import type { Client } from "@/lib/mock-data/clients";
 import { useWorkflowState } from "@/lib/hooks/useWorkflowState";
 import { getComponent } from "@/lib/ui/component-registry";
 

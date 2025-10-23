@@ -8,7 +8,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Client } from '@/lib/mock-data/clients';
+import type { Client } from '@/lib/mock-data/clients';
 import { clsx } from 'clsx';
 
 interface ClientFolderProps {
