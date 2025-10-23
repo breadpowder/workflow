@@ -8,6 +8,7 @@ import {
   updateClientState,
   ClientState,
 } from '@/lib/workflow/state-store';
+import { migrateClientData } from '@/lib/workflow/migrate-clients';
 
 /**
  * GET /api/client-state?clientId=xxx
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     const clientId = searchParams.get('clientId');
 
     if (clientId) {
-      // Load specific client state
+      // Load specific client state (includes data field)
       const state = await loadClientState(clientId);
 
       if (!state) {
@@ -32,8 +33,28 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json(state);
     } else {
-      // List all clients
-      const clients = await listClients();
+      // List all clients - return client data from each state
+      let clientIds = await listClients();
+
+      // Auto-migration: if no clients found, run migration
+      if (clientIds.length === 0) {
+        console.log('No clients found - running migration...');
+        const count = await migrateClientData();
+        console.log(`Migration complete: ${count} clients migrated`);
+        // Reload client list after migration
+        clientIds = await listClients();
+      }
+
+      // Load all client states
+      const states = await Promise.all(
+        clientIds.map(id => loadClientState(id))
+      );
+
+      // Extract and return client data field from each state
+      const clients = states
+        .filter(state => state !== null && state.data)
+        .map(state => state!.data!);
+
       return NextResponse.json({ clients });
     }
   } catch (error) {

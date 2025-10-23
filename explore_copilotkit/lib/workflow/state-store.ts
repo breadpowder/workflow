@@ -9,9 +9,13 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import type { Client } from '@/lib/mock-data/clients';
 
 /**
  * Client workflow state
+ *
+ * Stores workflow progress and client profile data in a single file.
+ * The `data` field contains the complete client profile information.
  */
 export interface ClientState {
   clientId: string;
@@ -22,6 +26,7 @@ export interface ClientState {
   completedSteps: string[];
   completedStages?: string[];
   lastUpdated: string;  // ISO 8601 timestamp
+  data?: Client;  // Client profile information
 }
 
 /**
