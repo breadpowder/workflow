@@ -160,7 +160,7 @@ return <Component {...props} />;
 ## Task 6: End-to-End Integration
 
 **Reference**: tasks.md COMP-006
-**Status**: 🔄 IN PROGRESS (Task 6E Complete, Task 6F Pending)
+**Status**: 🔄 IN PROGRESS (Task 6E Complete, Task 6F-BUG Complete, Task 6G Pending)
 
 ### Overview
 
@@ -172,7 +172,8 @@ End-to-end integration combines all previous tasks into a working onboarding flo
 - ✅ Phase 5: Three-pane layout with mock data (UI/UX proof)
 
 **Pending Phase:**
-- ⏳ Phase 6 (Task 6F): Wire real workflow state to UI components
+- ✅ Phase 6A (Task 6F-BUG): CSS Styling Fix (Tailwind v4 migration)
+- ⏳ Phase 6B (Task 6G): Wire real workflow state to UI components
 
 ---
 
@@ -258,7 +259,53 @@ npm run build  # ✅ Successful
 
 ---
 
-### Task 6F: Real Workflow Integration
+### Task 6F-BUG: CSS Styling Fix (Tailwind v4 Migration)
+
+**Reference**: tasks.md COMP-006F-BUG
+**Status**: ✅ COMPLETE
+**Actual Time**: 1 hour
+
+#### Issue Identified
+
+Playwright browser automation revealed 0% Tailwind CSS utility classes working. Root cause: Tailwind v4 packages with v3 configuration.
+
+#### Fix Applied
+
+**Configuration Migration:**
+```css
+/* app/globals.css - Migrated to v4 */
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1e40af;
+  --color-accent: #14b8a6;
+  /* ... other custom colors */
+}
+
+@source "../app";
+@source "../components";
+@source "../lib";
+```
+
+**Files Changed:**
+- `app/globals.css`: Updated to v4 format
+- `tailwind.config.ts`: Deleted (obsolete for v4)
+
+#### Verification
+
+- Playwright: 7/7 classes working (0% → 100%)
+- CSS size: 3.4KB → 8.4KB
+- Visual QA: All 33 styles apply correctly
+
+#### References
+
+- Bug workspace: `task_styling_apply/`
+- Gap analysis: `task_composable_onboarding/debug/analysis/css_applied_vs_planned.md`
+- Commit: `20c4d6c`
+
+---
+
+### Task 6G: Real Workflow Integration
 
 **Status**: ⏳ READY TO START
 **Estimated**: 3-4 hours
@@ -381,9 +428,10 @@ Files to reference:
 
 - ✅ Tasks 1-3: Foundation complete (runtime, loader, registry)
 - ✅ Task 6E: UI/UX structure complete (three-pane layout with mock data)
-- ⏳ Task 6F: Data integration pending (wire real workflow to UI)
+- ✅ Task 6F-BUG: CSS Styling Fix complete (Tailwind v4 migration)
+- ⏳ Task 6G: Data integration pending (wire real workflow to UI)
 
-**Next Step:** Task 6F - Real Workflow Integration (3-4 hours)
+**Next Step:** Task 6G - Real Workflow Integration (3-4 hours)
 
 ---
 
