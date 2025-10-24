@@ -21,6 +21,9 @@ export interface RequiredField {
 export interface WorkflowStatusSectionProps {
   fields: RequiredField[];
   className?: string;
+  currentStage?: string;
+  currentStepName?: string;
+  stageName?: string;
 }
 
 /**
@@ -69,7 +72,7 @@ function FieldStatus({ field }: { field: RequiredField }) {
   );
 }
 
-export function WorkflowStatusSection({ fields, className }: WorkflowStatusSectionProps) {
+export function WorkflowStatusSection({ fields, className, currentStage, currentStepName, stageName }: WorkflowStatusSectionProps) {
   const completedCount = fields.filter((f) => f.completed).length;
   const totalCount = fields.length;
   const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -80,11 +83,17 @@ export function WorkflowStatusSection({ fields, className }: WorkflowStatusSecti
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold text-gray-900">Workflow Status</h3>
-          {/* TODO: Future refactor - show step progress, stage info, completion % */}
           <span className="text-sm text-gray-600">
             {completedCount} of {totalCount} fields
           </span>
         </div>
+
+        {/* Current Status Display */}
+        {stageName && currentStepName && (
+          <div className="text-sm text-gray-700 mb-3">
+            <span className="font-medium">Status:</span> {stageName} - {currentStepName}
+          </div>
+        )}
 
         {/* Progress Bar */}
         <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -94,6 +103,14 @@ export function WorkflowStatusSection({ fields, className }: WorkflowStatusSecti
           />
         </div>
       </div>
+
+      {/* Required Info Section Header */}
+      {fields.length > 0 && (
+        <div className="mb-3">
+          <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Required Info</h4>
+          <div className="h-px bg-gray-200 mt-1"></div>
+        </div>
+      )}
 
       {/* Field List */}
       <div className="divide-y divide-gray-100">

@@ -87,6 +87,25 @@ export default function TestLayoutPage() {
     }));
   }, [selectedClient, workflow.currentStep, workflow.inputs]);
 
+  // Get current stage name and step name for display
+  const workflowDisplayInfo = useMemo(() => {
+    if (!workflow.machine || !workflow.currentStage || !workflow.currentStep) {
+      return { stageName: undefined, stepName: undefined };
+    }
+
+    // Find stage name from machine's stages array
+    const stage = workflow.machine.stages?.find(
+      (s) => s.id === workflow.currentStage
+    );
+    const stageName = stage?.name;
+
+    // Get step name from task definition
+    const stepName = workflow.currentStep.task_definition?.name;
+
+    return { stageName, stepName };
+  }, [workflow.machine, workflow.currentStage, workflow.currentStep]);
+
+
   // Real timeline from workflow events
   const timelineEvents: TimelineEvent[] = useMemo(() => {
     if (!selectedClient) return [];
@@ -275,7 +294,12 @@ export default function TestLayoutPage() {
                 <ProfileSection client={selectedClient} />
 
                 {/* Workflow Status Section */}
-                <WorkflowStatusSection fields={requiredFields} />
+                <WorkflowStatusSection
+                  fields={requiredFields}
+                  currentStage={workflow.currentStage}
+                  currentStepName={workflowDisplayInfo.stepName}
+                  stageName={workflowDisplayInfo.stageName}
+                />
 
                 {/* Timeline Section */}
                 <TimelineSection events={timelineEvents} />
