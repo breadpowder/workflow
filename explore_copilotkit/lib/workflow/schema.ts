@@ -147,3 +147,29 @@ export interface ValidationResult {
   valid: boolean;
   errors: string[];
 }
+
+/**
+ * Document upload metadata
+ */
+export interface DocumentMetadata {
+  type: 'articles_of_incorporation' | 'operating_agreement';
+  filename: string;          // Original filename
+  filepath: string;          // Relative path from project root
+  uploadedAt: string;        // ISO-8601 timestamp
+  fileSize: number;          // File size in bytes
+  mimeType: string;          // MIME type (application/pdf, image/jpeg, image/png)
+  approval_status: 'pending' | 'approved' | 'rejected';
+  approver_id?: string;      // User ID who approved/rejected
+  approval_timestamp?: string; // ISO-8601 timestamp of approval/rejection
+  rejection_reason?: string; // Reason for rejection (if rejected)
+}
+
+/**
+ * File field schema extension
+ */
+export interface FileFieldSchema extends FieldSchema {
+  type: 'file';
+  accept?: string[];         // Allowed MIME types
+  maxSize?: number;          // Max file size in bytes
+  multiple?: boolean;        // Allow multiple files (default: false)
+}
