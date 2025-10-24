@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { RegistryComponentProps } from '@/lib/ui/component-registry';
 import clsx from 'clsx';
 
@@ -171,6 +171,19 @@ export function GenericForm({
           </div>
         );
 
+      case 'file':
+        return (
+          <FileUploadField
+            key={name}
+            field={field}
+            value={value}
+            onChange={(val) => onInputChange(name, val)}
+            isRequired={isRequired}
+            isProcessing={isProcessing}
+            clientId={inputs.clientId || inputs.id || 'unknown'}
+          />
+        );
+
       default:
         return (
           <div key={name} className="mb-4">
@@ -205,10 +218,215 @@ export function GenericForm({
               'transition-colors'
             )}
           >
-            {isProcessing ? 'Processing...' : 'Continue'}
+            {isProcessing ? 'Processing...' : (schema as any).submitLabel || 'Continue'}
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/**
+ * File Upload Field Component
+ * Supports drag-drop and file picker for document uploads
+ */
+interface FileUploadFieldProps {
+  field: any;
+  value: any;
+  onChange: (value: any) => void;
+  isRequired: boolean;
+  isProcessing: boolean;
+  clientId: string;
+}
+
+function FileUploadField({
+  field,
+  value,
+  onChange,
+  isRequired,
+  isProcessing,
+  clientId,
+}: FileUploadFieldProps) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadedDocument = value;
+
+  // Validate file
+  const validateFile = (file: File): { valid: boolean; error?: string } => {
+    const allowedTypes = field.validation?.accept || [];
+    if (allowedTypes.length > 0 && !allowedTypes.includes(file.type)) {
+      return {
+        valid: false,
+        error: `Only ${allowedTypes.map((t: string) => t.split('/')[1].toUpperCase()).join(', ')} files are allowed`,
+      };
+    }
+
+    const maxSize = field.validation?.maxSize || Infinity;
+    if (file.size > maxSize) {
+      const maxMB = (maxSize / 1024 / 1024).toFixed(0);
+      return {
+        valid: false,
+        error: `File size exceeds ${maxMB}MB limit`,
+      };
+    }
+
+    return { valid: true };
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (file: File) => {
+    setError(null);
+
+    // Client-side validation
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid file');
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('clientId', clientId);
+      formData.append('documentType', field.name);
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Upload failed');
+      }
+
+      const result = await response.json();
+      onChange(result.document);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  // File picker handler
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  // Click to open file picker
+  const handleClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  return (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        {field.label}
+        {isRequired && <span className="text-red-500 ml-1">*</span>}
+      </label>
+
+      {field.helpText && (
+        <p className="text-sm text-gray-500 mb-2">{field.helpText}</p>
+      )}
+
+      {!uploadedDocument && (
+        <div
+          className={clsx(
+            'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors duration-200',
+            isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400',
+            (uploading || isProcessing) && 'opacity-50 pointer-events-none'
+          )}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={handleClick}
+        >
+          {uploading ? (
+            <div className="flex flex-col items-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-2" />
+              <p className="text-sm text-gray-600">Uploading...</p>
+            </div>
+          ) : (
+            <div>
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <p className="mt-2 text-sm text-gray-600">
+                {field.placeholder || 'Drag file here or click to upload'}
+              </p>
+              {field.validation?.accept && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {field.validation.accept.map((t: string) => t.split('/')[1].toUpperCase()).join(', ')}
+                  {field.validation.maxSize && ` • Max ${(field.validation.maxSize / 1024 / 1024).toFixed(0)}MB`}
+                </p>
+              )}
+            </div>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept={field.validation?.accept?.join(',')}
+            onChange={handleFileChange}
+          />
+        </div>
+      )}
+
+      {uploadedDocument && (
+        <div className="border border-green-300 bg-green-50 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <svg className="h-8 w-8 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-gray-900">{uploadedDocument.filename}</p>
+              <p className="text-xs text-gray-500">
+                {(uploadedDocument.fileSize / 1024 / 1024).toFixed(2)} MB • Uploaded {new Date(uploadedDocument.uploadedAt).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="text-sm text-blue-600 hover:text-blue-700"
+            onClick={() => onChange(null)}
+          >
+            Replace
+          </button>
+        </div>
+      )}
+
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   );
 }
