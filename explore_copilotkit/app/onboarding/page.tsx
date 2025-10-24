@@ -27,9 +27,9 @@ import { RightPane } from "@/components/layout/right-pane";
 import { ClientList } from "@/components/onboarding/client-list";
 import { ProfileSection } from "@/components/onboarding/profile-section";
 import {
-  RequiredFieldsSection,
+  WorkflowStatusSection,
   RequiredField,
-} from "@/components/onboarding/required-fields-section";
+} from "@/components/onboarding/workflow-status-section";
 import {
   TimelineSection,
   TimelineEvent,
@@ -279,8 +279,8 @@ export default function TestLayoutPage() {
                 {/* Profile Section */}
                 <ProfileSection client={selectedClient} />
 
-                {/* Required Fields Section */}
-                <RequiredFieldsSection fields={requiredFields} />
+                {/* Workflow Status Section */}
+                <WorkflowStatusSection fields={requiredFields} />
 
                 {/* Timeline Section */}
                 <TimelineSection events={timelineEvents} />

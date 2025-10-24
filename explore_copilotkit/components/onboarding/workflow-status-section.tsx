@@ -1,5 +1,5 @@
 /**
- * RequiredFieldsSection Component
+ * WorkflowStatusSection Component
  *
  * Displays a list of required fields for client onboarding with completion status.
  * Shows checkmarks (☑) for completed fields and empty boxes (☐) for pending fields.
@@ -18,7 +18,7 @@ export interface RequiredField {
   description?: string;
 }
 
-export interface RequiredFieldsSectionProps {
+export interface WorkflowStatusSectionProps {
   fields: RequiredField[];
   className?: string;
 }
@@ -69,7 +69,7 @@ function FieldStatus({ field }: { field: RequiredField }) {
   );
 }
 
-export function RequiredFieldsSection({ fields, className }: RequiredFieldsSectionProps) {
+export function WorkflowStatusSection({ fields, className }: WorkflowStatusSectionProps) {
   const completedCount = fields.filter((f) => f.completed).length;
   const totalCount = fields.length;
   const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -79,9 +79,10 @@ export function RequiredFieldsSection({ fields, className }: RequiredFieldsSecti
       {/* Header with progress */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-semibold text-gray-900">Required Fields</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Workflow Status</h3>
+          {/* TODO: Future refactor - show step progress, stage info, completion % */}
           <span className="text-sm text-gray-600">
-            {completedCount} of {totalCount}
+            {completedCount} of {totalCount} fields
           </span>
         </div>
 

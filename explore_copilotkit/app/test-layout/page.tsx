@@ -11,7 +11,7 @@
  * - Client list with search functionality
  * - Client selection state
  * - ProfileSection displays client info
- * - RequiredFieldsSection shows field status
+ * - WorkflowStatusSection shows field status
  * - TimelineSection displays events
  * - ChatSection with message display and input
  * - FormOverlay slides in from right with backdrop
@@ -25,7 +25,7 @@ import { MiddlePane } from '@/components/layout/middle-pane';
 import { RightPane } from '@/components/layout/right-pane';
 import { ClientList } from '@/components/onboarding/client-list';
 import { ProfileSection } from '@/components/onboarding/profile-section';
-import { RequiredFieldsSection, RequiredField } from '@/components/onboarding/required-fields-section';
+import { WorkflowStatusSection, RequiredField } from '@/components/onboarding/workflow-status-section';
 import { TimelineSection, TimelineEvent } from '@/components/onboarding/timeline-section';
 import { ChatSection, ChatMessage } from '@/components/chat/chat-section';
 import { FormOverlay } from '@/components/onboarding/form-overlay';
@@ -193,8 +193,8 @@ export default function TestLayoutPage() {
                 {/* Profile Section */}
                 <ProfileSection client={selectedClient} />
 
-                {/* Required Fields Section */}
-                <RequiredFieldsSection fields={requiredFields} />
+                {/* Workflow Status Section */}
+                <WorkflowStatusSection fields={requiredFields} />
 
                 {/* Timeline Section */}
                 <TimelineSection events={timelineEvents} />
