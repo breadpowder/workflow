@@ -98,8 +98,8 @@ export async function loadClientState(
     const content = await fs.readFile(filePath, 'utf8');
     const state = JSON.parse(content) as ClientState;
 
-    // Validate loaded state
-    if (!state.clientId || !state.workflowId || !state.currentStepId) {
+    // Validate loaded state (workflowId can be null)
+    if (!state.clientId || !state.currentStepId) {
       console.warn(`Invalid state file for client ${clientId}, returning null`);
       return null;
     }
