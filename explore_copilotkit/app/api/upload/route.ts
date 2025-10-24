@@ -136,7 +136,6 @@ export async function POST(request: NextRequest) {
     // Save updated state
     await updateClientState(clientId, {
       collectedInputs: clientState.collectedInputs,
-      lastUpdated: new Date().toISOString(),
     });
 
     // 11. Return success response

@@ -88,7 +88,6 @@ export async function PATCH(request: NextRequest) {
         ...clientState.collectedInputs,
         documents,
       },
-      lastUpdated: new Date().toISOString(),
     });
 
     // 10. Return success response
