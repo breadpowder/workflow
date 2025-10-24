@@ -46,7 +46,5 @@ next-env.d.ts
 Thumbs.db
 
 # Client state (POC - file-based storage)
-data/client_state/*.json
+# Note: Test data files are committed for development/testing purposes
 data/client_state/*.tmp
-# Client state files (runtime data, not source code)
-data/client_state/*.json

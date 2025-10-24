@@ -1,0 +1,22 @@
+{
+  "clientId": "corp-001",
+  "workflowId": "wf_corporate_v1",
+  "currentStepId": "collectContactInfo",
+  "currentStage": "information_collection",
+  "collectedInputs": {},
+  "completedSteps": [],
+  "completedStages": [],
+  "lastUpdated": "2025-10-24T00:10:00.000Z",
+  "data": {
+    "id": "corp-001",
+    "name": "Acme Corp",
+    "type": "corporate",
+    "status": "active",
+    "email": "admin@acmecorp.com",
+    "risk": "low",
+    "entityType": "LLC",
+    "jurisdiction": "US",
+    "createdAt": "2025-10-15",
+    "lastActivity": "2025-10-22"
+  }
+}

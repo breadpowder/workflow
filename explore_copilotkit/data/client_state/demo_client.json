@@ -1,0 +1,9 @@
+{
+  "clientId": "demo_client",
+  "workflowId": "wf_corporate_v1",
+  "currentStepId": "collectContactInfo",
+  "collectedInputs": {},
+  "completedSteps": [],
+  "completedStages": [],
+  "lastUpdated": "2025-10-24T00:34:02.349Z"
+}

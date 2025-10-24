@@ -1,0 +1,28 @@
+{
+  "clientId": "corp-test-docs",
+  "workflowId": "wf_corporate_v1",
+  "currentStepId": "collectDocuments",
+  "currentStage": "information_collection",
+  "collectedInputs": {
+    "legal_name": "Test Corporation",
+    "entity_type": "LLC",
+    "jurisdiction": "US",
+    "business_email": "test@testcorp.com",
+    "business_phone": "+1 (555) 555-5555"
+  },
+  "completedSteps": ["collectContactInfo"],
+  "completedStages": [],
+  "lastUpdated": "2025-10-24T14:00:00.000Z",
+  "data": {
+    "id": "corp-test-docs",
+    "name": "Test Corp - On Docs Step",
+    "type": "corporate",
+    "status": "active",
+    "email": "test@testcorp.com",
+    "risk": "low",
+    "entityType": "LLC",
+    "jurisdiction": "US",
+    "createdAt": "2025-10-24",
+    "lastActivity": "2025-10-24"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "clientId": "ind-001",
+  "workflowId": null,
+  "currentStepId": "collectContactInfo",
+  "currentStage": null,
+  "collectedInputs": {},
+  "completedSteps": [],
+  "completedStages": [],
+  "lastUpdated": "2025-10-24T00:10:00.000Z",
+  "data": {
+    "id": "ind-001",
+    "name": "John Smith",
+    "type": "individual",
+    "status": "active",
+    "email": "john.smith@email.com",
+    "risk": "low",
+    "jurisdiction": "US",
+    "createdAt": "2025-10-10",
+    "lastActivity": "2025-10-20"
+  }
+}

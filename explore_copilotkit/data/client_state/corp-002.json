@@ -1,0 +1,28 @@
+{
+  "clientId": "corp-002",
+  "workflowId": "wf_corporate_v1",
+  "currentStepId": "collectDocuments",
+  "currentStage": "information_collection",
+  "collectedInputs": {
+    "legal_name": "GreenTech Industries Ltd",
+    "entity_type": "Corporation",
+    "jurisdiction": "UK",
+    "business_email": "contact@greentech.com",
+    "business_phone": "+44 20 1234 5678"
+  },
+  "completedSteps": ["collectContactInfo"],
+  "completedStages": [],
+  "lastUpdated": "2025-10-24T14:30:00.000Z",
+  "data": {
+    "id": "corp-002",
+    "name": "GreenTech Industries",
+    "type": "corporate",
+    "status": "pending",
+    "email": "contact@greentech.com",
+    "risk": "medium",
+    "entityType": "Corporation",
+    "jurisdiction": "UK",
+    "createdAt": "2025-10-18",
+    "lastActivity": "2025-10-24"
+  }
+}

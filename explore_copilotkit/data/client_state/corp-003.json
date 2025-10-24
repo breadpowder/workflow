@@ -1,0 +1,48 @@
+{
+  "clientId": "corp-003",
+  "workflowId": "wf_corporate_v1",
+  "currentStepId": "review",
+  "currentStage": "compliance_review",
+  "collectedInputs": {
+    "legal_name": "TechStart Ventures",
+    "entity_type": "Partnership",
+    "jurisdiction": "US",
+    "business_email": "info@techstart.io",
+    "business_phone": "+1 (555) 987-6543",
+    "documents": [
+      {
+        "type": "articles_of_incorporation",
+        "filename": "articles.pdf",
+        "filepath": "uploads/corp-003/articles_of_incorporation/articles.pdf",
+        "uploadedAt": "2025-10-24T13:00:00.000Z",
+        "fileSize": 524288,
+        "mimeType": "application/pdf",
+        "approval_status": "pending"
+      },
+      {
+        "type": "operating_agreement",
+        "filename": "operating-agreement.pdf",
+        "filepath": "uploads/corp-003/operating_agreement/operating-agreement.pdf",
+        "uploadedAt": "2025-10-24T13:05:00.000Z",
+        "fileSize": 768000,
+        "mimeType": "application/pdf",
+        "approval_status": "pending"
+      }
+    ]
+  },
+  "completedSteps": ["collectContactInfo", "collectDocuments"],
+  "completedStages": ["information_collection"],
+  "lastUpdated": "2025-10-24T15:00:00.000Z",
+  "data": {
+    "id": "corp-003",
+    "name": "TechStart Ventures",
+    "type": "corporate",
+    "status": "review",
+    "email": "info@techstart.io",
+    "risk": "high",
+    "entityType": "Partnership",
+    "jurisdiction": "SG",
+    "createdAt": "2025-10-20",
+    "lastActivity": "2025-10-24"
+  }
+}

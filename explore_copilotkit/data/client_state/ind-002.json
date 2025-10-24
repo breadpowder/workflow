@@ -1,0 +1,21 @@
+{
+  "clientId": "ind-002",
+  "workflowId": null,
+  "currentStepId": "collectContactInfo",
+  "currentStage": null,
+  "collectedInputs": {},
+  "completedSteps": [],
+  "completedStages": [],
+  "lastUpdated": "2025-10-24T00:10:00.000Z",
+  "data": {
+    "id": "ind-002",
+    "name": "Sarah Johnson",
+    "type": "individual",
+    "status": "complete",
+    "email": "sarah.j@email.com",
+    "risk": "low",
+    "jurisdiction": "CA",
+    "createdAt": "2025-10-12",
+    "lastActivity": "2025-10-19"
+  }
+}
