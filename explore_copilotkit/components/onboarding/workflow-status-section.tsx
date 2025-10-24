@@ -90,18 +90,13 @@ export function WorkflowStatusSection({ fields, className, currentStage, current
 
         {/* Current Status Display */}
         {stageName && currentStepName && (
-          <div className="text-sm text-gray-700 mb-3">
-            <span className="font-medium">Status:</span> {stageName} - {currentStepName}
+          <div className="mb-3">
+            <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              Status: {stageName} - {currentStepName}
+            </h4>
+            <div className="h-px bg-gray-200 mt-1"></div>
           </div>
         )}
-
-        {/* Progress Bar */}
-        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-green-600 transition-all duration-300"
-            style={{ width: `${completionPercentage}%` }}
-          />
-        </div>
       </div>
 
       {/* Required Info Section Header */}
