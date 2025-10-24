@@ -102,3 +102,6 @@ export interface WorkflowStep {
 - `pickApplicableWorkflow(defs, profile)` - Select by client_type/jurisdiction
 
 4. to be continued
+- when u build new feature or bug fixes, think hard current UI and behavior are not broken, you must communicate user with any broken changes.
+- when you do UI testing, refer to ui-capture and spec for ui behavior
+- for ui testing, please wait 30 sec for the full ui to load than run scripts

@@ -1,0 +1,189 @@
+[
+  {
+    "section": "INITIAL_LOAD",
+    "description": "Navigate to /onboarding",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:10.417Z"
+  },
+  {
+    "section": "INITIAL_LOAD",
+    "description": "Page loaded successfully",
+    "details": {
+      "title": "Composable Onboarding POC"
+    },
+    "timestamp": "2025-10-24T09:52:14.606Z"
+  },
+  {
+    "section": "CLIENT_LIST",
+    "description": "Analyzing client list",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:14.606Z"
+  },
+  {
+    "section": "CLIENT_LIST",
+    "description": "Client list loaded",
+    "details": {
+      "totalClients": 6,
+      "clientNames": [
+        "Corporate(3)",
+        "A",
+        "G",
+        "T",
+        "J",
+        "S"
+      ],
+      "sections": {
+        "corporate": false,
+        "individual": false
+      }
+    },
+    "timestamp": "2025-10-24T09:52:14.612Z"
+  },
+  {
+    "section": "SEARCH",
+    "description": "Testing search functionality",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:14.685Z"
+  },
+  {
+    "section": "SEARCH",
+    "description": "Search results for \"Acme\"",
+    "details": {
+      "filteredCount": 2,
+      "names": [
+        "Corporate(1)",
+        "A"
+      ]
+    },
+    "timestamp": "2025-10-24T09:52:16.093Z"
+  },
+  {
+    "section": "SEARCH",
+    "description": "Search cleared - all clients should be visible",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:16.917Z"
+  },
+  {
+    "section": "CLIENT_SELECT",
+    "description": "Selecting first client (Acme Corp)",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:16.917Z"
+  },
+  {
+    "section": "CLIENT_SELECT",
+    "description": "Selected client UI state",
+    "details": {
+      "clientName": {
+        "exists": true,
+        "visible": true,
+        "heading": "Acme Corp",
+        "contentPreview": "AAcme Corpadmin@acmecorp.comType:corporateStatus:activeRisk Level:lowJurisdiction:USEntity Type:LLCCreated:2025-10-15Last Activity:2025-10-22"
+      },
+      "workflowStatus": {
+        "exists": true,
+        "visible": true,
+        "heading": "Workflow Status",
+        "contentPreview": "Workflow Status0 of 5 fieldsLegal NameLegal Business NamePendingEntity TypeEntity TypePendingJurisdictionJurisdiction of IncorporationPendingBusiness EmailBusiness Email AddressPendingBusiness PhoneBu"
+      },
+      "requiredFields": {
+        "exists": false
+      }
+    },
+    "timestamp": "2025-10-24T09:52:20.405Z"
+  },
+  {
+    "section": "WORKFLOW_STATUS",
+    "description": "Analyzing Workflow Status section",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:20.405Z"
+  },
+  {
+    "section": "WORKFLOW_STATUS",
+    "description": "Workflow Status details",
+    "details": {
+      "exists": true,
+      "heading": "Workflow Status",
+      "hasProgressBar": false,
+      "fieldCount": {
+        "completed": 0,
+        "total": 5
+      },
+      "fieldItemCount": 0,
+      "contentPreview": "Workflow Status0 of 5 fields"
+    },
+    "timestamp": "2025-10-24T09:52:20.409Z"
+  },
+  {
+    "section": "FORM_OVERLAY",
+    "description": "Testing Form Overlay button and interaction",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:20.482Z"
+  },
+  {
+    "section": "FORM_OVERLAY",
+    "description": "Button found - verifying visibility and position",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:20.484Z"
+  },
+  {
+    "section": "FORM_OVERLAY",
+    "description": "Button details",
+    "details": {
+      "found": true,
+      "text": "Open Current Step Form",
+      "visible": true,
+      "position": {
+        "top": 584,
+        "right": 1248,
+        "bottom": 624,
+        "left": 1031.328125
+      },
+      "classes": "absolute bottom-24 right-8 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition-colors z-10"
+    },
+    "timestamp": "2025-10-24T09:52:20.487Z"
+  },
+  {
+    "section": "FORM_OVERLAY",
+    "description": "Overlay opened successfully",
+    "details": {
+      "opened": false
+    },
+    "timestamp": "2025-10-24T09:52:22.918Z"
+  },
+  {
+    "section": "FORM_OVERLAY",
+    "description": "Overlay closed successfully",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:26.430Z"
+  },
+  {
+    "section": "CLIENT_SELECT_2",
+    "description": "Testing different client selection",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:26.430Z"
+  },
+  {
+    "section": "CLIENT_SELECT_2",
+    "description": "Individual client selected",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:29.869Z"
+  },
+  {
+    "section": "RESPONSIVE",
+    "description": "Testing responsive behavior",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:29.869Z"
+  },
+  {
+    "section": "RESPONSIVE",
+    "description": "Mobile viewport (375x667)",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:30.963Z"
+  },
+  {
+    "section": "RESPONSIVE",
+    "description": "Tablet viewport (768x1024)",
+    "details": {},
+    "timestamp": "2025-10-24T09:52:32.076Z"
+  }
+]

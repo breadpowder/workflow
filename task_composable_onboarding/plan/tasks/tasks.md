@@ -1312,8 +1312,7 @@ Create presentation layer components for the middle pane: Profile section, Requi
 **Dependencies**: Task 6A (Three-Pane Foundation)
 
 ### Description
-
-Refactor RightPane to implement chat-first pattern with form overlay. Chat is the default full-height interface; forms appear as modal overlays when triggered by workflow.
+actor RightPane to implement chat-first pattern with form overlay. Chat is the default full-height interface; forms appear as modal overlays when triggered by workflow.
 
 ### Objectives
 

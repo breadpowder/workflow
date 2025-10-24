@@ -43,7 +43,6 @@ import { getComponent } from "@/lib/ui/component-registry";
 export default function TestLayoutPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [overlayOpen, setOverlayOpen] = useState(false);
-  const previousStepIdRef = useRef<string>('');
 
   // Real workflow state integration
   const workflow = useWorkflowState({
@@ -201,14 +200,10 @@ export default function TestLayoutPage() {
     setMessages((prev) => [...prev, systemMessage]);
   };
 
-  // Auto-close overlay when workflow progresses to next step
-  useEffect(() => {
-    if (overlayOpen && !workflow.isTransitioning && workflow.currentStepId &&
-        workflow.currentStepId !== previousStepIdRef.current) {
-      previousStepIdRef.current = workflow.currentStepId;
-      handleCloseOverlay();
-    }
-  }, [workflow.currentStepId, workflow.isTransitioning, overlayOpen]);
+  // REMOVED: Auto-close overlay effect
+  // Reason: Was closing overlay prematurely when currentStepId changed
+  // (which happens both during form submission AND client selection)
+  // Now user must manually close overlay or it stays open during transitions
 
   // Show loading spinner while workflow loads
   if (workflow.isLoading) {
@@ -378,7 +373,8 @@ export default function TestLayoutPage() {
                           type: "success",
                         };
                         setMessages((prev) => [...prev, successMessage]);
-                        handleCloseOverlay();
+                        // REMOVED: handleCloseOverlay();
+                        // Reason: Keep overlay open to show next step's form
                       } catch (error) {
                         const errorMessage: ChatMessage = {
                           id: Date.now().toString(),
