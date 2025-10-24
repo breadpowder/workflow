@@ -17,9 +17,6 @@ stages:
     name: Compliance Review
     description: Review and verify compliance requirements
 
-  - id: finalization
-    name: Finalization
-    description: Final review and approval
 
 steps:
   # Step 1: Collect corporate contact information
@@ -27,11 +24,18 @@ steps:
     stage: information_collection
     task_ref: contact_info/corporate
     next:
+      default: collectDocuments
+
+  # Step 2: Collect business documents
+  - id: collectDocuments
+    stage: information_collection
+    task_ref: documents/corporate
+    next:
       default: review
 
-  # Step 2: Review and submit
+  # Step 3: Review and submit
   - id: review
-    stage: finalization
+    stage: compliance_review
     task_ref: review/summary
     next:
       default: END

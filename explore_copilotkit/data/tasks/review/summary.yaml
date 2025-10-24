@@ -10,13 +10,46 @@ required_fields:
 
 schema:
   sections:
-    - id: contact_info
+    - id: contact_information
       title: "Contact Information"
       description: "Review your contact details"
+      fields:
+        - legal_name
+        - entity_type
+        - jurisdiction
+        - business_email
+        - business_phone
 
     - id: documents
-      title: "Documents"
-      description: "Review uploaded documents"
+      title: "Uploaded Documents"
+      description: "Review and approve/reject uploaded documents"
+      type: table
+      columns:
+        - id: document_type
+          label: "Document Type"
+          width: "25%"
+        - id: filename
+          label: "Filename"
+          width: "25%"
+        - id: upload_date
+          label: "Upload Date"
+          width: "15%"
+        - id: approval_status
+          label: "Status"
+          width: "15%"
+        - id: actions
+          label: "Actions"
+          width: "20%"
+      actions:
+        - id: approve
+          label: "Approve"
+          type: primary
+          icon: check
+        - id: reject
+          label: "Reject"
+          type: danger
+          icon: x
+          requiresReason: true
 
   actions:
     - id: edit

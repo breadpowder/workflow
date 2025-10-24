@@ -1,0 +1,54 @@
+id: task_collect_corporate_documents
+name: Collect Corporate Documents
+description: Upload required business formation documents for compliance review
+version: 1
+
+component_id: form
+
+required_fields:
+  - articles_of_incorporation
+  - operating_agreement
+
+schema:
+  fields:
+    # Field 1: Articles of Incorporation
+    - name: articles_of_incorporation
+      label: "Articles of Incorporation"
+      type: file
+      required: true
+      helpText: "Upload the official Articles of Incorporation filed with your jurisdiction"
+      validation:
+        accept:
+          - application/pdf
+          - image/jpeg
+          - image/png
+        maxSize: 20971520  # 20MB in bytes
+        required: true
+      placeholder: "Click or drag to upload PDF or image file"
+
+    # Field 2: Operating Agreement
+    - name: operating_agreement
+      label: "Operating Agreement"
+      type: file
+      required: true
+      helpText: "Upload the signed Operating Agreement or Bylaws"
+      validation:
+        accept:
+          - application/pdf
+          - image/jpeg
+          - image/png
+        maxSize: 20971520  # 20MB
+        required: true
+      placeholder: "Click or drag to upload PDF or image file"
+
+  layout: single-column
+  submitLabel: "Continue to Review"
+
+expected_output_fields:
+  - articles_of_incorporation
+  - operating_agreement
+
+tags:
+  - documents
+  - corporate
+  - compliance
