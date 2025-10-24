@@ -1,0 +1,576 @@
+{
+  "test_suite": "tailwind_css_v4_verification",
+  "version": "1.0",
+  "created": "2025-10-22",
+  "purpose": "Validate Tailwind CSS v4 migration fixes styling issues",
+  "target_success_rate": "100%",
+  "baseline_success_rate": "0%",
+
+  "test_categories": {
+    "utility_classes": {
+      "description": "Core Tailwind utility classes must apply correct styles",
+      "priority": "P0",
+      "test_cases": [
+        {
+          "id": "TC-001",
+          "name": "Flexbox Display",
+          "class": "flex",
+          "css_property": "display",
+          "expected_value": "flex",
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_value": "block",
+            "has_styles": false
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_value": "flex",
+            "has_styles": true
+          },
+          "test_code": "await expect(page.locator('.flex').first()).toHaveCSS('display', 'flex')"
+        },
+        {
+          "id": "TC-002",
+          "name": "Flex Direction Column",
+          "class": "flex-col",
+          "css_property": "flex-direction",
+          "expected_value": "column",
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_value": "row",
+            "has_styles": false
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_value": "column",
+            "has_styles": true
+          },
+          "test_code": "await expect(page.locator('.flex-col').first()).toHaveCSS('flex-direction', 'column')"
+        },
+        {
+          "id": "TC-003",
+          "name": "Gap Utility",
+          "class": "gap-6",
+          "css_property": "gap",
+          "expected_value": "24px",
+          "expected_alternatives": ["1.5rem"],
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_value": "0px",
+            "has_styles": false
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_value": "24px",
+            "has_styles": true
+          },
+          "test_code": "await expect(page.locator('.gap-6').first()).toHaveCSS('gap', /^(24px|1\\.5rem)$/)"
+        },
+        {
+          "id": "TC-004",
+          "name": "Padding Utility",
+          "class": "p-6",
+          "css_property": "padding",
+          "expected_value": "24px",
+          "expected_alternatives": ["1.5rem"],
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_value": "0px",
+            "has_styles": false
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_value": "24px",
+            "has_styles": true
+          },
+          "test_code": "await expect(page.locator('.p-6').first()).toHaveCSS('padding', /^(24px|1\\.5rem)$/)"
+        },
+        {
+          "id": "TC-005",
+          "name": "Background Color White",
+          "class": "bg-white",
+          "css_property": "background-color",
+          "expected_value": "rgb(255, 255, 255)",
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_value": "rgba(0, 0, 0, 0)",
+            "has_styles": false
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_value": "rgb(255, 255, 255)",
+            "has_styles": true
+          },
+          "test_code": "await expect(page.locator('.bg-white').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)')"
+        },
+        {
+          "id": "TC-006",
+          "name": "Border Radius Large",
+          "class": "rounded-lg",
+          "css_property": "border-radius",
+          "expected_value": "8px",
+          "expected_alternatives": ["0.5rem"],
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_value": "0px",
+            "has_styles": false
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_value": "8px",
+            "has_styles": true
+          },
+          "test_code": "await expect(page.locator('.rounded-lg').first()).toHaveCSS('border-radius', /^(8px|0\\.5rem)$/)"
+        },
+        {
+          "id": "TC-007",
+          "name": "Box Shadow Medium",
+          "class": "shadow-md",
+          "css_property": "box-shadow",
+          "expected_pattern": "0.*4px.*6px",
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_value": "none",
+            "has_styles": false
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_value": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+            "has_styles": true
+          },
+          "test_code": "await expect(page.locator('.shadow-md').first()).toHaveCSS('box-shadow', /0.*4px.*6px/)"
+        }
+      ],
+      "success_criteria": {
+        "minimum_pass_rate": "100%",
+        "required_passes": 7,
+        "total_tests": 7
+      }
+    },
+
+    "custom_theme_colors": {
+      "description": "Custom theme colors from v3 config must work in v4",
+      "priority": "P0",
+      "test_cases": [
+        {
+          "id": "TC-101",
+          "name": "Primary Color",
+          "class": "bg-primary",
+          "css_property": "background-color",
+          "expected_value": "rgb(30, 64, 175)",
+          "hex_value": "#1e40af",
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_value": "rgba(0, 0, 0, 0)",
+            "has_styles": false
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_value": "rgb(30, 64, 175)",
+            "has_styles": true
+          },
+          "test_code": "await expect(page.locator('.bg-primary').first()).toHaveCSS('background-color', 'rgb(30, 64, 175)')"
+        },
+        {
+          "id": "TC-102",
+          "name": "Accent Color",
+          "class": "bg-accent",
+          "css_property": "background-color",
+          "expected_value": "rgb(20, 184, 166)",
+          "hex_value": "#14b8a6",
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_value": "rgba(0, 0, 0, 0)",
+            "has_styles": false
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_value": "rgb(20, 184, 166)",
+            "has_styles": true
+          },
+          "test_code": "await expect(page.locator('.bg-accent').first()).toHaveCSS('background-color', 'rgb(20, 184, 166)')"
+        },
+        {
+          "id": "TC-103",
+          "name": "Success Color",
+          "class": "bg-success",
+          "css_property": "background-color",
+          "expected_value": "rgb(16, 185, 129)",
+          "hex_value": "#10b981",
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_value": "rgba(0, 0, 0, 0)",
+            "has_styles": false
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_value": "rgb(16, 185, 129)",
+            "has_styles": true
+          },
+          "test_code": "await expect(page.locator('.bg-success').first()).toHaveCSS('background-color', 'rgb(16, 185, 129)')"
+        },
+        {
+          "id": "TC-104",
+          "name": "Warning Color",
+          "class": "bg-warning",
+          "css_property": "background-color",
+          "expected_value": "rgb(245, 158, 11)",
+          "hex_value": "#f59e0b",
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_value": "rgba(0, 0, 0, 0)",
+            "has_styles": false
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_value": "rgb(245, 158, 11)",
+            "has_styles": true
+          },
+          "test_code": "await expect(page.locator('.bg-warning').first()).toHaveCSS('background-color', 'rgb(245, 158, 11)')"
+        },
+        {
+          "id": "TC-105",
+          "name": "Danger Color",
+          "class": "bg-danger",
+          "css_property": "background-color",
+          "expected_value": "rgb(239, 68, 68)",
+          "hex_value": "#ef4444",
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_value": "rgba(0, 0, 0, 0)",
+            "has_styles": false
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_value": "rgb(239, 68, 68)",
+            "has_styles": true
+          },
+          "test_code": "await expect(page.locator('.bg-danger').first()).toHaveCSS('background-color', 'rgb(239, 68, 68)')"
+        }
+      ],
+      "success_criteria": {
+        "minimum_pass_rate": "100%",
+        "required_passes": 5,
+        "total_tests": 5
+      }
+    },
+
+    "css_loading": {
+      "description": "CSS files must load correctly with proper size and content",
+      "priority": "P0",
+      "test_cases": [
+        {
+          "id": "TC-201",
+          "name": "CSS File Loads Successfully",
+          "test_type": "network",
+          "url_pattern": "/_next/static/css/.*\\.css",
+          "expected_status": 200,
+          "baseline_result": {
+            "status": "PASS",
+            "http_status": 200,
+            "note": "File loads but content is wrong"
+          },
+          "target_result": {
+            "status": "PASS",
+            "http_status": 200,
+            "note": "File loads with correct content"
+          }
+        },
+        {
+          "id": "TC-202",
+          "name": "CSS File Size Adequate",
+          "test_type": "file_size",
+          "minimum_size_bytes": 50000,
+          "baseline_result": {
+            "status": "FAIL",
+            "actual_size": 3478,
+            "unit": "bytes"
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_size": 150000,
+            "unit": "bytes",
+            "note": "Size varies based on content, should be >50KB"
+          }
+        },
+        {
+          "id": "TC-203",
+          "name": "CSS Contains Utility Classes",
+          "test_type": "content_verification",
+          "required_patterns": [
+            ".flex",
+            ".p-6",
+            ".bg-white",
+            ".rounded-lg",
+            ".shadow-md"
+          ],
+          "baseline_result": {
+            "status": "FAIL",
+            "found_patterns": 0,
+            "missing_patterns": [".flex", ".p-6", ".bg-white", ".rounded-lg", ".shadow-md"]
+          },
+          "target_result": {
+            "status": "PASS",
+            "found_patterns": 5,
+            "missing_patterns": []
+          }
+        },
+        {
+          "id": "TC-204",
+          "name": "No Console Errors",
+          "test_type": "console_validation",
+          "expected_errors": 0,
+          "baseline_result": {
+            "status": "PASS",
+            "error_count": 0,
+            "note": "No errors, just missing styles"
+          },
+          "target_result": {
+            "status": "PASS",
+            "error_count": 0
+          }
+        }
+      ],
+      "success_criteria": {
+        "minimum_pass_rate": "100%",
+        "required_passes": 4,
+        "total_tests": 4
+      }
+    },
+
+    "visual_regression": {
+      "description": "Visual appearance must match design specifications",
+      "priority": "P1",
+      "test_cases": [
+        {
+          "id": "TC-301",
+          "name": "Onboarding Page Layout",
+          "page": "/onboarding",
+          "test_type": "visual",
+          "checks": [
+            "Card layout with proper spacing",
+            "Rounded corners visible",
+            "Shadow effects present",
+            "White background on cards"
+          ],
+          "baseline_result": {
+            "status": "FAIL",
+            "issues": [
+              "No card styling",
+              "No spacing",
+              "No shadows",
+              "Default background"
+            ]
+          },
+          "target_result": {
+            "status": "PASS",
+            "issues": []
+          }
+        },
+        {
+          "id": "TC-302",
+          "name": "Typography Styling",
+          "page": "/onboarding",
+          "test_type": "visual",
+          "checks": [
+            "Custom font applied",
+            "Text colors correct",
+            "Font sizes appropriate",
+            "Line heights proper"
+          ],
+          "baseline_result": {
+            "status": "FAIL",
+            "issues": [
+              "Times New Roman font (browser default)",
+              "Default text colors"
+            ]
+          },
+          "target_result": {
+            "status": "PASS",
+            "issues": []
+          }
+        },
+        {
+          "id": "TC-303",
+          "name": "Responsive Design",
+          "page": "/onboarding",
+          "test_type": "visual",
+          "viewports": ["mobile", "tablet", "desktop"],
+          "baseline_result": {
+            "status": "FAIL",
+            "issues": [
+              "No responsive classes active",
+              "Layout breaks on mobile"
+            ]
+          },
+          "target_result": {
+            "status": "PASS",
+            "issues": []
+          }
+        }
+      ],
+      "success_criteria": {
+        "minimum_pass_rate": "100%",
+        "required_passes": 3,
+        "total_tests": 3
+      }
+    },
+
+    "build_verification": {
+      "description": "Build process must complete successfully",
+      "priority": "P0",
+      "test_cases": [
+        {
+          "id": "TC-401",
+          "name": "Production Build Success",
+          "test_type": "build",
+          "command": "npm run build",
+          "expected_exit_code": 0,
+          "baseline_result": {
+            "status": "PASS",
+            "exit_code": 0,
+            "note": "Build succeeds but CSS is wrong"
+          },
+          "target_result": {
+            "status": "PASS",
+            "exit_code": 0,
+            "note": "Build succeeds with correct CSS"
+          }
+        },
+        {
+          "id": "TC-402",
+          "name": "Build Time Acceptable",
+          "test_type": "performance",
+          "maximum_time_seconds": 60,
+          "baseline_result": {
+            "status": "PASS",
+            "actual_time": 25,
+            "note": "Fast because no utilities generated"
+          },
+          "target_result": {
+            "status": "PASS",
+            "actual_time": 30,
+            "note": "Slightly slower but within limits"
+          }
+        },
+        {
+          "id": "TC-403",
+          "name": "No Build Warnings",
+          "test_type": "build",
+          "expected_warnings": 0,
+          "baseline_result": {
+            "status": "PASS",
+            "warning_count": 0,
+            "note": "Silent failure - no warnings about missing config"
+          },
+          "target_result": {
+            "status": "PASS",
+            "warning_count": 0
+          }
+        }
+      ],
+      "success_criteria": {
+        "minimum_pass_rate": "100%",
+        "required_passes": 3,
+        "total_tests": 3
+      }
+    }
+  },
+
+  "acceptance_criteria": [
+    {
+      "id": "AC-001",
+      "description": "All 7 core utility classes work correctly",
+      "test_coverage": ["TC-001", "TC-002", "TC-003", "TC-004", "TC-005", "TC-006", "TC-007"],
+      "status": "PENDING",
+      "priority": "P0"
+    },
+    {
+      "id": "AC-002",
+      "description": "All 5 custom theme colors work correctly",
+      "test_coverage": ["TC-101", "TC-102", "TC-103", "TC-104", "TC-105"],
+      "status": "PENDING",
+      "priority": "P0"
+    },
+    {
+      "id": "AC-003",
+      "description": "CSS loads correctly with adequate size",
+      "test_coverage": ["TC-201", "TC-202", "TC-203", "TC-204"],
+      "status": "PENDING",
+      "priority": "P0"
+    },
+    {
+      "id": "AC-004",
+      "description": "Visual appearance matches design",
+      "test_coverage": ["TC-301", "TC-302", "TC-303"],
+      "status": "PENDING",
+      "priority": "P1"
+    },
+    {
+      "id": "AC-005",
+      "description": "Build process completes successfully",
+      "test_coverage": ["TC-401", "TC-402", "TC-403"],
+      "status": "PENDING",
+      "priority": "P0"
+    }
+  ],
+
+  "test_execution": {
+    "automated_tests": {
+      "framework": "Playwright",
+      "command": "npx playwright test tests/tailwind-verification.spec.ts",
+      "estimated_duration": "60 seconds",
+      "required_setup": [
+        "npm run dev (dev server running)",
+        "Playwright installed",
+        "Browser drivers available"
+      ]
+    },
+    "manual_tests": {
+      "estimated_duration": "15 minutes",
+      "required_setup": [
+        "npm run dev",
+        "Browser DevTools open"
+      ],
+      "test_steps": [
+        "Navigate to /onboarding",
+        "Verify card styling present",
+        "Check custom colors in UI",
+        "Test responsive breakpoints",
+        "Verify no console errors"
+      ]
+    }
+  },
+
+  "success_metrics": {
+    "before_fix": {
+      "utility_class_success_rate": "0%",
+      "custom_color_success_rate": "0%",
+      "css_file_size": "3478 bytes",
+      "visual_quality": "0% (completely broken)",
+      "build_status": "Succeeds but output is wrong"
+    },
+    "after_fix": {
+      "utility_class_success_rate": "100%",
+      "custom_color_success_rate": "100%",
+      "css_file_size": ">50000 bytes",
+      "visual_quality": "100% (fully styled)",
+      "build_status": "Succeeds with correct output"
+    },
+    "improvement": {
+      "utility_classes": "+100% (0% → 100%)",
+      "custom_colors": "+100% (0% → 100%)",
+      "css_size": "+1337% (3.4KB → 50KB+)",
+      "visual_quality": "+100% (broken → working)"
+    }
+  },
+
+  "references": {
+    "bug_report": "/home/zineng/workspace/workflow/task_styling_apply/debug/repro/repro.md",
+    "root_cause": "/home/zineng/workspace/workflow/task_styling_apply/debug/analysis/rca.md",
+    "fix_strategy": "/home/zineng/workspace/workflow/task_styling_apply/plan/fix-strategy.md",
+    "risk_assessment": "/home/zineng/workspace/workflow/task_styling_apply/plan/risk-assessment.md",
+    "rollback_plan": "/home/zineng/workspace/workflow/task_styling_apply/plan/rollback-plan.md",
+    "decision_log": "/home/zineng/workspace/workflow/task_styling_apply/plan/decision-log.md"
+  }
+}
